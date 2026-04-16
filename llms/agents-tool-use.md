@@ -1,100 +1,109 @@
 # Agents & Tool Use
 
-## What Is It?
+## TL;DR
 
-An AI agent is an LLM that can **take actions** in the real world — not just generate text, but actually call functions, search the web, query databases, write code, and execute multi-step plans. Tool use (also called "function calling") is the mechanism that makes this possible.
+An AI agent is an LLM that can take actions in the real world — not just generate text, but call functions, search the web, query databases, and execute multi-step plans. Tool use (function calling) is the mechanism: you define functions the LLM can call, it decides which to call and when, you execute them, and pass results back. The agent loops — think → act → observe → think — until the task is complete. This turns a passive text generator into an autonomous assistant.
+
+> 💡 **Key Insight:** You never let the LLM *execute* tools directly. The LLM *decides* what to call; your code executes it. You stay in control of what can happen.
+
+---
+
+## The Mental Model
+
+**Think of an agent like a highly capable intern with a phone book.**
+
+The intern is smart but stuck at a desk. You give them a list of phone numbers (tools) they can call to get things done. They decide who to call, when to call, and in what order — but *you* control which numbers are in the phone book. The intern orchestrates; the real work happens through calls.
+
+| Real world | Technical concept |
+|------------|------------------|
+| Intern's brain / reasoning | LLM |
+| Phone book of contacts | List of available tools (tool definitions) |
+| Intern decides who to call | LLM chooses which tool to invoke |
+| Intern dials the number | Your code executes the tool |
+| Contact provides information | Tool returns result |
+| Intern reports back to you | LLM generates final response with results |
+| Task takes multiple calls | Agent loop (multi-step reasoning) |
+
+---
+
+## Why It Exists (Problem → Solution)
+
+**The problem:** LLMs are brilliant reasoners trapped in a bubble. They can't access real-time data, call APIs, query your database, or take any action in the world. They can only generate text based on their training data.
+
+**What came before:** Humans had to manually break tasks into steps, run each step, and paste results into the next prompt. Tedious and doesn't scale.
+
+**What changed:** Function calling (2023) gave LLMs a structured way to request actions. The model signals "I want to call this function with these arguments" and your code handles the actual execution. This unlocks a new category of AI applications — agents that autonomously complete multi-step tasks.
 
 ```
-Regular LLM:
+Without tool use:
   User: "What's the weather in Paris?"
-  LLM:  "I don't have real-time weather data." (can only use training knowledge)
+  LLM:  "I don't have real-time weather data." ← useless
 
-LLM with Tools:
+With tool use:
   User: "What's the weather in Paris?"
   LLM:  → calls get_weather("Paris")
         → receives { temp: 18, condition: "sunny" }
-  LLM:  "It's 18°C and sunny in Paris right now!"
+  LLM:  "It's 18°C and sunny in Paris right now!" ← useful
 ```
 
-## Frontend Analogy
+---
 
-```javascript
-// An AI agent is like a React component with side effects
+## Core Concepts
 
-// Regular component (pure LLM):
-function StaticInfo() {
-  return <div>Paris is the capital of France</div>;  // Static knowledge only
-}
+### 1. Tool Definitions — The Agent's Capabilities
 
-// Component with side effects (Agent):
-function WeatherWidget() {
-  const [weather, setWeather] = useState(null);
-  
-  useEffect(() => {
-    // This is like "tool use" — the component can fetch external data
-    fetch('/api/weather?city=Paris')
-      .then(res => res.json())
-      .then(setWeather);
-  }, []);
+**Plain English:** A tool definition tells the LLM what a function does, when to use it, and what arguments it takes. The LLM reads these descriptions to decide which tool to call.
 
-  return <div>Paris: {weather?.temp}°C, {weather?.condition}</div>;
-}
+**Analogy:** Tool descriptions are like API documentation. A developer reads docs to know when and how to call a function. The LLM does the same thing — if the description is vague, it'll call the wrong tool or with wrong arguments.
 
-// The LLM decides WHEN to call which function, just like
-// your component decides when to trigger useEffect
+```typescript
+const tools = [
+  {
+    name: 'get_weather',
+    description: 'Get current weather for a city. Use when users ask about weather conditions, temperature, or forecast.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        city: {
+          type: 'string',
+          description: 'City name and country, e.g. "Paris, France"'
+        },
+        units: {
+          type: 'string',
+          enum: ['celsius', 'fahrenheit'],
+          description: 'Temperature units'
+        }
+      },
+      required: ['city']
+    }
+  }
+];
 ```
 
-## How Tool Use Works
+**Common misconception:** The name is the most important part. Actually, the **description** is what the LLM reads to decide whether to call a tool. A perfectly named tool with a bad description will be misused.
 
-The flow has 4 steps:
+---
+
+### 2. The 4-Step Tool Use Flow
+
+**Plain English:** The LLM never executes tools itself. It *requests* a tool call; you *execute* it; you *return* the result; the LLM *responds* with a final answer using that result.
+
+**Analogy:** It's like submitting a support ticket. The LLM writes the ticket ("please look up weather for Paris"), your system processes it (calls the weather API), and sends back the result. The LLM then writes the customer-facing response based on what was returned.
 
 ```
 ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐
 │ 1. You   │     │ 2. LLM   │     │ 3. You   │     │ 4. LLM   │
-│ send msg │────►│ decides  │────►│ execute  │────►│ generates│
-│ + tools  │     │ to call  │     │ the tool │     │ final    │
-│          │     │ a tool   │     │ & return │     │ response │
-│          │     │          │     │ result   │     │          │
+│ send msg │────►│ requests │────►│ execute  │────►│ generates│
+│ + tools  │     │ a tool   │     │ the tool │     │ final    │
+│          │     │ call     │     │ & return │     │ response │
 └──────────┘     └──────────┘     └──────────┘     └──────────┘
-
-You define the tools → LLM chooses which to call → You run them → LLM uses results
 ```
-
-### Step-by-Step
 
 ```typescript
 import Anthropic from '@anthropic-ai/sdk';
-
 const anthropic = new Anthropic();
 
-// Step 1: Define tools the LLM can use
-const tools = [
-  {
-    name: 'get_weather',
-    description: 'Get current weather for a city. Use this when users ask about weather.',
-    input_schema: {
-      type: 'object',
-      properties: {
-        city: { type: 'string', description: 'City name, e.g. "Paris, France"' },
-        units: { type: 'string', enum: ['celsius', 'fahrenheit'], default: 'celsius' }
-      },
-      required: ['city']
-    }
-  },
-  {
-    name: 'search_web',
-    description: 'Search the web for current information.',
-    input_schema: {
-      type: 'object',
-      properties: {
-        query: { type: 'string', description: 'Search query' }
-      },
-      required: ['query']
-    }
-  }
-];
-
-// Step 2: Send message with tools
+// 1. Send message with tools
 const response = await anthropic.messages.create({
   model: 'claude-sonnet-4-5-20241022',
   max_tokens: 1024,
@@ -102,22 +111,22 @@ const response = await anthropic.messages.create({
   messages: [{ role: 'user', content: "What's the weather in Paris?" }]
 });
 
-// Step 3: Check if the LLM wants to call a tool
+// 2. Check if LLM wants to call a tool
 if (response.stop_reason === 'tool_use') {
   const toolCall = response.content.find(c => c.type === 'tool_use');
-  // toolCall = { type: 'tool_use', name: 'get_weather', input: { city: 'Paris' } }
+  // { type: 'tool_use', id: 'tu_123', name: 'get_weather', input: { city: 'Paris' } }
 
-  // Step 4: Execute the tool and return the result
-  const weatherData = await getWeatherAPI(toolCall.input.city);
-  
-  // Step 5: Send the result back to the LLM
-  const finalResponse = await anthropic.messages.create({
+  // 3. Execute the tool (your code, your control)
+  const weatherData = await fetchWeatherAPI(toolCall.input.city);
+
+  // 4. Send result back to LLM
+  const final = await anthropic.messages.create({
     model: 'claude-sonnet-4-5-20241022',
     max_tokens: 1024,
     tools,
     messages: [
       { role: 'user', content: "What's the weather in Paris?" },
-      { role: 'assistant', content: response.content },
+      { role: 'assistant', content: response.content },  // LLM's tool request
       {
         role: 'user',
         content: [{
@@ -128,131 +137,165 @@ if (response.stop_reason === 'tool_use') {
       }
     ]
   });
-  
-  console.log(finalResponse.content[0].text);
+
+  console.log(final.content[0].text);
   // "It's currently 18°C and sunny in Paris!"
 }
 ```
 
-## The Agent Loop
+**Common misconception:** Tool use is complex to implement. The basic flow is just 2 API calls. The complexity comes from the agent loop (multi-step), not single tool use.
 
-Real agents don't just call one tool — they loop: think → act → observe → think → act → ... until the task is done.
+---
+
+### 3. The Agent Loop — Multi-Step Autonomous Reasoning
+
+**Plain English:** Real tasks need multiple tool calls. The agent loops: call → get result → think → call again → ... until done. You just keep sending results back until `stop_reason === 'end_turn'`.
+
+**Analogy:** Think of it as a reducer / state machine:
+```
+state = { messages: [], status: 'thinking' }
+
+LLM_RESPONSE (tool_use) → status: 'executing'
+TOOL_COMPLETE            → status: 'thinking'   ← back to LLM
+LLM_RESPONSE (end_turn)  → status: 'done'        ← final answer
+```
 
 ```typescript
-// The core agent loop pattern
-async function agentLoop(userMessage: string) {
-  const messages = [{ role: 'user', content: userMessage }];
+async function agentLoop(userMessage: string): Promise<string> {
+  const messages = [{ role: 'user' as const, content: userMessage }];
 
   while (true) {
-    // 1. Ask the LLM what to do
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-5-20241022',
       max_tokens: 4096,
-      system: 'You are a helpful assistant with access to tools. Use them when needed.',
+      system: 'You are a helpful assistant. Use tools when needed.',
       tools,
       messages,
     });
 
-    // 2. Add the assistant's response to history
     messages.push({ role: 'assistant', content: response.content });
 
-    // 3. If the LLM is done (no more tool calls), return the answer
+    // If LLM is done (no more tool calls), return the answer
     if (response.stop_reason === 'end_turn') {
-      const textContent = response.content.find(c => c.type === 'text');
-      return textContent?.text;
+      return response.content.find(c => c.type === 'text')?.text ?? '';
     }
 
-    // 4. Otherwise, execute all tool calls
-    const toolResults = [];
-    for (const block of response.content) {
-      if (block.type === 'tool_use') {
-        console.log(`Calling tool: ${block.name}(${JSON.stringify(block.input)})`);
-        const result = await executeTool(block.name, block.input);
-        toolResults.push({
-          type: 'tool_result',
-          tool_use_id: block.id,
-          content: JSON.stringify(result),
-        });
-      }
-    }
+    // Execute all tool calls (might be multiple in parallel)
+    const toolResults = await Promise.all(
+      response.content
+        .filter(c => c.type === 'tool_use')
+        .map(async tc => ({
+          type: 'tool_result' as const,
+          tool_use_id: tc.id,
+          content: JSON.stringify(await executeTool(tc.name, tc.input)),
+        }))
+    );
 
-    // 5. Send results back and loop
     messages.push({ role: 'user', content: toolResults });
-  }
-}
-
-// Tool executor — maps tool names to actual functions
-async function executeTool(name: string, input: any) {
-  switch (name) {
-    case 'get_weather': return await fetchWeather(input.city);
-    case 'search_web':  return await searchGoogle(input.query);
-    case 'run_sql':     return await executeSQL(input.query);
-    default: throw new Error(`Unknown tool: ${name}`);
+    // Loop back to LLM with results
   }
 }
 ```
 
-```javascript
-// Frontend analogy: The agent loop is like a state machine
+**Common misconception:** The agent decides when it's done. The agent loops until `stop_reason === 'end_turn'`, but you should always set a max iteration limit. Without it, a confused agent can loop forever and drain your budget.
 
-// Think of it as a reducer:
-// state = { messages: [], status: 'thinking' }
-//
-// action: LLM_RESPONSE (with tool_use) → status: 'executing_tools'
-// action: TOOL_RESULTS → status: 'thinking'        ← back to LLM
-// action: LLM_RESPONSE (end_turn) → status: 'done' ← final answer
-//
-// The loop keeps going until the LLM says "I'm done"
-```
+---
 
-## Multi-Step Agent Example
+### 4. Parallel Tool Calls
 
-Here's how an agent handles a complex task with multiple tool calls:
+**Plain English:** When multiple tools don't depend on each other, the LLM can request them all at once in a single response. Execute them in parallel for speed.
 
-```
-User: "Compare the weather in Paris and Tokyo, then find flights between them"
-
-Agent thinking: I need weather for both cities and then flight info.
-
-Step 1: Call get_weather("Paris")      → 18°C, sunny
-Step 2: Call get_weather("Tokyo")      → 22°C, cloudy
-Step 3: Call search_flights("Paris", "Tokyo") → [list of flights]
-
-Agent: "Here's the comparison:
-        Paris: 18°C and sunny
-        Tokyo: 22°C and cloudy
-        
-        Cheapest flights:
-        - Air France: $650, 12h direct
-        - ANA: $720, 11.5h direct
-        - Turkish Airlines: $480, 16h with stopover"
-```
-
-The LLM **autonomously decides** the order of operations, what tools to call, and when it has enough information to answer.
-
-## Designing Good Tools
-
-### Tool Description is Everything
-
-The LLM decides which tool to call based on the **description**. Bad descriptions = wrong tool choices.
+**Analogy:** Like a chef prepping multiple dishes simultaneously. No need to finish the salad before starting the soup if they're independent. The LLM knows which calls can run concurrently.
 
 ```typescript
-// ❌ Bad tool definition
+// LLM returns multiple tool_use blocks in one response
+response.content = [
+  { type: 'tool_use', name: 'get_weather', input: { city: 'Paris' } },
+  { type: 'tool_use', name: 'get_weather', input: { city: 'Tokyo' } },
+  { type: 'tool_use', name: 'search_flights', input: { from: 'Paris', to: 'Tokyo' } }
+];
+
+// Execute all in parallel — much faster than sequential
+const results = await Promise.all(
+  response.content
+    .filter(c => c.type === 'tool_use')
+    .map(tc => executeTool(tc.name, tc.input))
+);
+```
+
+**Common misconception:** The LLM always calls tools one at a time. Modern models (Claude, GPT-4) actively batch independent tool calls. A well-designed task like "compare weather in 3 cities" will trigger 3 parallel `get_weather` calls.
+
+---
+
+## How the Agent Loop Works (Step-by-Step)
+
+```
+Task: "Compare weather in Paris and Tokyo, then find flights between them"
+
+Step 1: User message arrives
+        ↓
+Step 2: LLM thinks: "I need weather for both cities — I can call these simultaneously"
+        → Returns 2 tool_use blocks in one response
+        ↓
+Step 3: Your code executes both in parallel:
+        get_weather("Paris") → 18°C, sunny
+        get_weather("Tokyo") → 22°C, cloudy
+        ↓
+Step 4: Results sent back to LLM
+        ↓
+Step 5: LLM thinks: "Now I need flights"
+        → Returns 1 tool_use block
+        ↓
+Step 6: Your code executes:
+        search_flights("Paris", "Tokyo") → [Air France $650, ANA $720, Turkish $480]
+        ↓
+Step 7: Results sent back to LLM
+        ↓
+Step 8: LLM has everything it needs
+        → stop_reason: 'end_turn'
+        → Generates formatted answer
+        ↓
+Step 9: Return final response to user
+```
+
+```
+Message history grows:
+[user: question]
+[assistant: tool_use × 2]
+[user: tool_result × 2]
+[assistant: tool_use × 1]
+[user: tool_result × 1]
+[assistant: end_turn — final answer] ← return this
+```
+
+---
+
+## Code in Practice
+
+### Designing Good Tools
+
+The LLM chooses tools based on descriptions. Invest in descriptions.
+
+```typescript
+// ❌ Bad tool definition — vague, LLM won't know when to use it
 {
   name: 'db_query',
-  description: 'Query the database',  // Too vague — when should LLM use this?
-  input_schema: { ... }
+  description: 'Query the database',
+  input_schema: { type: 'object', properties: { q: { type: 'string' } } }
 }
 
-// ✅ Good tool definition
+// ✅ Good tool definition — specific, helpful, tells the LLM exactly when to use it
 {
   name: 'search_products',
-  description: 'Search the product catalog by name, category, or price range. Use this when the user asks about products, prices, or availability. Returns up to 10 matching products with name, price, and stock status.',
+  description: `Search the product catalog by name, category, or price range.
+               Use when the user asks about products, pricing, or availability.
+               Returns up to 10 matching products with name, price, and stock status.
+               Do NOT use for order history or customer account information.`,
   input_schema: {
     type: 'object',
     properties: {
-      query: { type: 'string', description: 'Search term (product name or keyword)' },
-      category: { type: 'string', enum: ['electronics', 'clothing', 'food', 'books'] },
+      query:     { type: 'string', description: 'Search term or product name' },
+      category:  { type: 'string', enum: ['electronics', 'clothing', 'books'] },
       max_price: { type: 'number', description: 'Maximum price in USD' },
     },
     required: ['query']
@@ -260,25 +303,104 @@ The LLM decides which tool to call based on the **description**. Bad description
 }
 ```
 
-### Tool Design Principles
+### Real-World Agent: Customer Support
+
+```typescript
+const supportTools = [
+  {
+    name: 'lookup_order',
+    description: 'Look up order details by order ID. Use when customer provides an order number.',
+    input_schema: {
+      type: 'object',
+      properties: { order_id: { type: 'string', description: 'Order ID, e.g. "ORD-12345"' } },
+      required: ['order_id']
+    }
+  },
+  {
+    name: 'search_knowledge_base',
+    description: 'Search help articles for product info, policies, and troubleshooting guides.',
+    input_schema: {
+      type: 'object',
+      properties: { query: { type: 'string' } },
+      required: ['query']
+    }
+  },
+  {
+    name: 'create_support_ticket',
+    description: 'Create a ticket to escalate to a human agent. Use when you cannot resolve the issue.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        summary:  { type: 'string', description: 'Brief issue summary' },
+        priority: { type: 'string', enum: ['low', 'medium', 'high'] },
+      },
+      required: ['summary', 'priority']
+    }
+  }
+];
+
+const SUPPORT_SYSTEM = `You are a customer support agent for TechCorp.
+Use available tools to resolve customer issues. 
+If you cannot resolve within 3 tool calls, create a support ticket.
+Always be empathetic and clear.`;
+```
+
+---
+
+## Agent Safety & Guardrails
+
+Agents can take real actions. Safety is not optional.
+
+```typescript
+// 1. Categorize tools by risk
+const readOnly = ['search_products', 'get_weather', 'lookup_order'];
+const write    = ['send_email', 'create_order', 'update_profile'];
+const danger   = ['delete_account', 'execute_sql', 'deploy_code'];
+
+// 2. Require confirmation for write operations
+async function executeTool(name: string, input: any) {
+  if (write.includes(name) || danger.includes(name)) {
+    const ok = await askUser(`AI wants to: ${name}(${JSON.stringify(input)}). Allow?`);
+    if (!ok) return { error: 'User denied this action' };
+  }
+  return await toolImplementations[name](input);
+}
+
+// 3. Validate LLM-generated inputs — never trust them blindly
+async function runSql(query: string) {
+  if (!query.trim().toUpperCase().startsWith('SELECT')) {
+    return { error: 'Only SELECT queries allowed' };  // No writes ever
+  }
+  return await db.query(query);
+}
+
+// 4. Cap the agent loop
+const MAX_STEPS = 10;
+let steps = 0;
+while (steps < MAX_STEPS) {
+  steps++;
+  // ... agent loop ...
+}
+if (steps >= MAX_STEPS) return 'Task exceeded maximum steps — please try a simpler request.';
+```
 
 ```
-1. CLEAR NAMES       → search_products, not sp or tool_3
-2. DETAILED DESC     → When to use it, what it returns, edge cases
-3. TYPED PARAMS      → Use enums, required fields, descriptions
-4. SINGLE PURPOSE    → One tool per action (don't combine search + buy)
-5. SAFE BY DEFAULT   → Read operations first, writes need confirmation
-6. USEFUL ERRORS     → Return error messages the LLM can act on
+Safety hierarchy:
+────────────────
+Read operations        → Auto-approve (search, lookup, fetch)
+Write operations       → Require user confirmation
+Destructive operations → Require explicit confirmation + audit log
+Never allow            → Arbitrary code execution outside sandbox
 ```
+
+---
 
 ## Agent Frameworks
 
-You can build agents from scratch (like above), or use frameworks that handle the loop, memory, and tooling.
-
-### LangChain / LangGraph
+Build agents from scratch (above) or use frameworks.
 
 ```python
-# LangChain — popular but heavyweight
+# LangChain — most popular, most ecosystem
 from langchain_anthropic import ChatAnthropic
 from langchain.agents import create_tool_calling_agent
 
@@ -287,26 +409,8 @@ agent = create_tool_calling_agent(llm, tools, prompt)
 result = agent.invoke({"input": "What's the weather in Paris?"})
 ```
 
-### Claude Agent SDK (Anthropic)
-
 ```typescript
-// For building production agents with Claude
-// Handles the agent loop, tool execution, and conversation management
-import { Agent } from '@anthropic-ai/agent';
-
-const agent = new Agent({
-  model: 'claude-sonnet-4-5-20241022',
-  tools: [weatherTool, searchTool, databaseTool],
-  system: 'You are a helpful assistant.',
-});
-
-const result = await agent.run('Find the cheapest flights to Paris this weekend');
-```
-
-### Vercel AI SDK (Tools)
-
-```typescript
-// Great for Next.js apps — tools integrate with streaming
+// Vercel AI SDK — best for Next.js, integrates with streaming UI
 import { anthropic } from '@ai-sdk/anthropic';
 import { generateText, tool } from 'ai';
 import { z } from 'zod';
@@ -315,171 +419,173 @@ const result = await generateText({
   model: anthropic('claude-sonnet-4-5-20241022'),
   tools: {
     weather: tool({
-      description: 'Get the weather in a city',
-      parameters: z.object({
-        city: z.string().describe('City name'),
-      }),
-      execute: async ({ city }) => {
-        // Your actual API call
-        return await fetchWeather(city);
-      },
+      description: 'Get weather for a city',
+      parameters: z.object({ city: z.string() }),
+      execute: async ({ city }) => fetchWeather(city),
     }),
   },
-  maxSteps: 5,  // Max tool-call iterations
+  maxSteps: 5,  // caps the agent loop
   prompt: "What's the weather in Paris?",
 });
 ```
 
-## Multi-Step Reasoning (ReAct Pattern)
+**When to use frameworks vs. from scratch:**
+- **From scratch**: you understand the loop, small apps, full control
+- **LangChain**: large ecosystem, pre-built tools, complex multi-agent graphs
+- **Vercel AI SDK**: Next.js apps, streaming UI, simpler tool integration
 
-The most powerful agent pattern: **Reason**, **Act**, **Observe** in a loop.
+---
 
-```
-User: "What's the total revenue from our top 3 customers this quarter?"
-
-Thought 1: I need to find the top 3 customers by revenue. I'll query the database.
-Action 1:  run_sql("SELECT customer, SUM(amount) as revenue 
-                     FROM orders 
-                     WHERE date >= '2024-10-01' 
-                     GROUP BY customer 
-                     ORDER BY revenue DESC 
-                     LIMIT 3")
-Observe 1: [{ customer: "Acme", revenue: 150000 }, 
-            { customer: "Beta", revenue: 120000 },
-            { customer: "Gamma", revenue: 95000 }]
-
-Thought 2: I have the top 3 customers and their revenue. Let me calculate the total.
-Action 2:  (no tool needed — can calculate: 150000 + 120000 + 95000 = 365000)
-
-Answer: "Your top 3 customers this quarter are:
-         1. Acme Corp: $150,000
-         2. Beta Inc: $120,000  
-         3. Gamma Ltd: $95,000
-         Total revenue: $365,000"
-```
-
-## Agent Safety & Guardrails
-
-Agents can take real actions — so safety is critical.
-
-```typescript
-// 1. Permission levels — categorize tools by risk
-const readOnlyTools = [searchProducts, getWeather, lookupUser];
-const writeTools = [createOrder, updateProfile, sendEmail];
-const dangerousTools = [deleteAccount, executeSQL, deployCode];
-
-// 2. Confirmation for write operations
-async function executeTool(name: string, input: any) {
-  const tool = allTools.find(t => t.name === name);
-  
-  if (tool.requiresConfirmation) {
-    const approved = await askUser(
-      `The AI wants to: ${name}(${JSON.stringify(input)}). Allow?`
-    );
-    if (!approved) return { error: 'User denied this action' };
-  }
-  
-  return await tool.execute(input);
-}
-
-// 3. Input validation — never trust LLM-generated inputs blindly
-async function executeSql(query: string) {
-  // Only allow SELECT queries
-  if (!query.trim().toUpperCase().startsWith('SELECT')) {
-    return { error: 'Only SELECT queries are allowed' };
-  }
-  // Use parameterized queries when possible
-  return await db.query(query);
-}
-
-// 4. Rate limiting — prevent runaway loops
-const MAX_ITERATIONS = 10;
-let iterations = 0;
-
-while (iterations < MAX_ITERATIONS) {
-  iterations++;
-  // ... agent loop ...
-}
-```
+## Gotchas & Pitfalls
 
 ```
-Safety Hierarchy:
-─────────────────
-Read operations       → Auto-approve (search, lookup, get)
-Write operations      → Require user confirmation (create, update, send)
-Destructive operations → Require explicit confirmation + logging (delete, deploy)
-Never allow           → Arbitrary code execution without sandbox
+❌ Vague tool descriptions → ✅ Specific descriptions that say when AND when NOT to use
+   "Query database" vs "Search product catalog by name/category. Don't use for orders."
+
+❌ No max iteration limit → ✅ Always set MAX_STEPS
+   A confused agent will loop until you've spent all your budget
+
+❌ Trusting LLM-generated inputs → ✅ Validate all tool inputs before execution
+   The LLM can hallucinate tool arguments — always sanitize SQL, file paths, IDs
+
+❌ Allowing writes without confirmation → ✅ Require human approval for state changes
+   "Create order for all items in cart" with wrong cart = real money charged
+
+❌ All tools in one definition → ✅ One tool = one responsibility
+   Combining search + purchase into one tool means the LLM calls it wrong
+
+❌ Ignoring error returns → ✅ Return structured errors the LLM can act on
+   Return { error: 'Product not found' } so the LLM can try a different search
+
+❌ Sequential tool execution → ✅ Parallel execution for independent tools
+   Don't await get_weather("Paris"); await get_weather("Tokyo") — use Promise.all
 ```
 
-## Real-World Agent Architectures
+---
 
-### Customer Support Agent
+## When to Use / When NOT to Use Agents
 
-```
-Tools:
-  - search_knowledge_base(query)     → Find relevant help articles
-  - lookup_order(order_id)           → Get order details
-  - check_inventory(product_id)      → Check stock status
-  - create_ticket(details)           → Escalate to human
-  - process_refund(order_id, amount) → Issue refund (requires confirmation)
+**Use agents when:**
+- Task requires multiple steps that depend on intermediate results
+- You need real-time data the LLM doesn't have (weather, stock prices, DB records)
+- The steps required aren't fully known upfront (the LLM needs to decide)
+- Automating workflows that currently require a human to orchestrate
 
-System prompt:
-  "You are a customer support agent. Try to resolve issues using
-   available tools. If you can't resolve within 3 tool calls,
-   create a ticket and escalate to a human agent."
-```
+**Don't use agents when:**
+- A single LLM call with the right prompt solves it (simpler = better)
+- You need sub-second response times (agent loops take seconds)
+- The task is deterministic and predictable (use a regular pipeline)
+- Safety requirements make autonomous action unacceptable (always keep humans in the loop)
 
-### Code Assistant Agent
+---
 
-```
-Tools:
-  - read_file(path)           → Read source code
-  - search_codebase(query)    → Search files by content
-  - run_tests(file)           → Run test suite
-  - edit_file(path, changes)  → Modify code
-  - run_command(cmd)           → Execute shell commands (sandboxed)
+## Related Concepts (The Map)
 
-Flow:
-  1. User: "Fix the bug in the login form"
-  2. Agent: search_codebase("login form") → finds LoginForm.tsx
-  3. Agent: read_file("LoginForm.tsx") → sees the code
-  4. Agent: identifies bug, edits file
-  5. Agent: run_tests("LoginForm.test.tsx") → tests pass
-  6. Agent: "Fixed! The issue was..."
-```
+| If you know... | Agent concept is like... |
+|----------------|-------------------------|
+| React component with useEffect | Agent = component with side effects that fetch external data |
+| Redux reducer | Agent loop = reducer: state + action → new state, until done |
+| Middleware pipeline | Tool chain = middleware that adds data to the request |
+| AWS Lambda orchestration | Agent = orchestrator that calls Lambda functions in sequence |
+| State machines (XState) | Agent loop is a state machine: thinking → acting → observing → thinking |
 
-## Parallel Tool Calls
+**Connected topics:**
+- **Prompt Engineering** → system prompt and ReAct pattern for agent behavior
+- **LLM APIs & SDKs** → tool_use response type and how to handle it
+- **RAG** → common tool for agents to search knowledge bases
+- **Fine-tuning** → teach models to better follow tool-use conventions
 
-LLMs can call multiple tools simultaneously when the calls are independent:
+---
 
-```typescript
-// The LLM returns multiple tool_use blocks in one response
-response.content = [
-  { type: 'tool_use', name: 'get_weather', input: { city: 'Paris' } },
-  { type: 'tool_use', name: 'get_weather', input: { city: 'Tokyo' } },
-  { type: 'tool_use', name: 'search_flights', input: { from: 'Paris', to: 'Tokyo' } }
-];
-
-// Execute them in parallel for speed
-const results = await Promise.all(
-  response.content
-    .filter(c => c.type === 'tool_use')
-    .map(tc => executeTool(tc.name, tc.input))
-);
-```
-
-## Key Takeaways
+## Cheat Sheet
 
 | Concept | What to Remember |
 |---------|-----------------|
-| Tool use | LLM chooses which function to call based on description |
-| Agent loop | Think → Act → Observe → repeat until done |
-| Tool design | Clear name, detailed description, typed parameters |
-| Safety | Read=auto, Write=confirm, Delete=explicit confirm |
-| Parallel calls | Independent tools can run concurrently |
-| Max iterations | Always cap the loop to prevent runaway agents |
-| ReAct | Reason + Act pattern for complex multi-step tasks |
+| Tool use | LLM signals a call; your code executes it — you stay in control |
+| Agent loop | Think → Act → Observe → repeat until `stop_reason === 'end_turn'` |
+| Tool description | The most important field — LLM decides based on this |
+| Parallel calls | Independent tools run concurrently — use Promise.all |
+| MAX_STEPS | Always cap the loop — prevent runaway agents |
+| Safety | Read=auto, Write=confirm, Delete=explicit confirm + log |
+| ReAct pattern | Reason then act — explicit Thought/Action/Observation structure |
 
-## What's Next?
+**The minimal agent loop:**
+```typescript
+while (steps++ < MAX_STEPS) {
+  const res = await llm.create({ messages, tools });
+  messages.push({ role: 'assistant', content: res.content });
+  if (res.stop_reason === 'end_turn') return getText(res);
+  const results = await Promise.all(getToolCalls(res).map(executeWithValidation));
+  messages.push({ role: 'user', content: results });
+}
+```
 
-Agents use tools to act in the world. But sometimes you need the model itself to behave differently — write in your brand voice, understand your domain terminology, or follow company-specific guidelines. That's [Fine-tuning](fine-tuning-llms.md).
+**Tool design checklist:**
+1. CLEAR NAME — `search_products`, not `sp` or `tool_3`
+2. DETAILED DESC — when to use, what it returns, edge cases
+3. TYPED PARAMS — use enums, required fields, descriptions
+4. SINGLE PURPOSE — one tool = one action
+5. SAFE DEFAULTS — reads first, writes need confirmation
+6. USEFUL ERRORS — return messages the LLM can act on
+
+**Remember these 3 things:**
+1. The LLM decides what to call; your code decides what can run
+2. Always cap agent loops — no MAX_STEPS = infinite loop risk
+3. Tool descriptions matter more than tool names — invest in them
+
+---
+
+## Self-Check Questions
+
+1. **An agent calls `delete_user(user_id: "123")` autonomously. Who is responsible for this action being safe?**
+
+<details>
+<summary>Answer</summary>
+You are — the engineer who built the agent. The LLM can only call tools you've given it. If `delete_user` is in your tool list without a confirmation gate, you've allowed it. The fix: categorize destructive tools separately, require explicit user confirmation before executing, and log all write operations. Never expose destructive tools without guards.
+</details>
+
+2. **What happens if you don't include a `MAX_STEPS` limit in your agent loop?**
+
+<details>
+<summary>Answer</summary>
+The agent can loop indefinitely if it gets confused, encounters a tool error it keeps retrying, or is given an impossible task. This drains your API budget (each loop is billable API calls) and leaves the user waiting forever. Always set a sensible limit (10–20 steps for most tasks) and return a graceful failure message when exceeded.
+</details>
+
+3. **The LLM keeps calling the wrong tool. What's the first thing you fix?**
+
+<details>
+<summary>Answer</summary>
+The tool description. The LLM selects tools by reading descriptions — if the description is vague, ambiguous, or doesn't say when NOT to use it, the model will guess wrong. Rewrite the description to be specific about the exact use case, what the tool returns, and explicitly state scenarios where it should NOT be used.
+</details>
+
+4. **You ask the agent to "compare weather in 5 cities." It calls get_weather 5 times sequentially. How do you speed this up?**
+
+<details>
+<summary>Answer</summary>
+The LLM should return all 5 tool_use blocks in a single response (parallel calls). If it doesn't, check: (1) your system prompt might imply sequential thinking, (2) the model might not have seen these tools used together before. Once it returns multiple tool_use blocks, execute them with `Promise.all()` — this turns 5 sequential calls (~5s) into 1 parallel batch (~1s).
+</details>
+
+5. **When should you use an agent framework (LangChain, Vercel AI SDK) vs. building the loop yourself?**
+
+<details>
+<summary>Answer</summary>
+Build it yourself first — understanding the loop at the code level makes debugging much easier. Use a framework when: you need pre-built tool integrations (LangChain has hundreds), you're building a Next.js streaming chat app (Vercel AI SDK's useChat + tools is optimal), or you need multi-agent orchestration (LangGraph). Frameworks add abstraction overhead — don't use them until you understand what they're abstracting.
+</details>
+
+---
+
+## Go Deeper
+
+1. **[Anthropic Tool Use Guide](https://docs.anthropic.com/en/docs/build-with-claude/tool-use)** — The official guide with complete code examples for every tool use pattern: single tool, multiple tools, parallel calls, streaming with tools. Start here. (1 hour)
+
+2. **[Building Effective Agents](https://www.anthropic.com/research/building-effective-agents)** — Anthropic's research post on what actually works in production agents. Covers when NOT to use agents, common failure modes, and design principles. Essential reading. (30 min)
+
+3. **[LangGraph Documentation](https://langchain-ai.github.io/langgraph/)** — Best framework for multi-agent systems and complex agent workflows. Even if you don't use it, the concepts (nodes, edges, state) clarify agent architecture. (2 hours)
+
+4. **[ReAct: Synergizing Reasoning and Acting](https://arxiv.org/abs/2210.03629)** — The paper that formalized the Reason+Act pattern. Understanding the original formulation helps you design better prompts for agents. (20 min)
+
+5. **[Anthropic Cookbook — Agents](https://github.com/anthropics/anthropic-cookbook/tree/main/tool_use)** — Working code examples of real agents: customer support, code execution, web search. Copy-paste starting points for your own agents. (ongoing reference)
+
+---
+
+**What's next?** Agents use tools to act in the world. Sometimes you need the model itself to behave differently — write in your brand voice, understand your domain terminology. That's [Fine-tuning →](fine-tuning-llms.md)

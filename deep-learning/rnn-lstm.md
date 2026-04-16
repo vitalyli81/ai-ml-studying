@@ -1,239 +1,400 @@
 # RNN & LSTM (Recurrent Neural Networks)
 
-## What Is It?
+## 1. TL;DR
 
-An RNN is a neural network that processes **sequences** — data where **order matters**. Unlike a regular network that sees each input independently, an RNN has **memory**: it passes information from one step to the next.
+RNNs process sequences by passing a hidden state from one step to the next — like `Array.reduce()` where the accumulator carries memory forward. Basic RNNs forget after ~10 steps due to vanishing gradients. LSTMs fix this with learned gates that control what to remember and what to forget, enabling memory of 100+ steps. For most NLP tasks today, Transformers have replaced LSTMs — but LSTMs still dominate time series and streaming data, and understanding them is essential for understanding why Transformers exist.
 
-Think of it like reading a sentence word by word — you remember what came before to understand what comes next.
+---
 
-## Frontend Analogy — The Reducer
+## 2. The Mental Model
 
-An RNN works exactly like `Array.reduce()`:
+> 💡 **An RNN is exactly `Array.reduce()` — same structure, same purpose.**
 
 ```javascript
-// Regular network: process each item independently
-items.map(item => processItem(item));
+// Regular processing (like a dense network): items processed independently
+items.map(item => process(item));
 
-// RNN: process items in order, passing state from one to the next
+// RNN processing: items processed in order, state passes forward
 items.reduce((state, item) => {
-  const newState = processItem(item, state);  // use previous state + current item
-  return newState;
+    const newState = process(item, state);  // use history + current input
+    return newState;
 }, initialState);
 ```
 
-Each step takes the **current input** and the **previous state**, and produces a **new state**. That's an RNN.
+- **Accumulator (state)** → hidden state h (the "memory")
+- **Current item** → current input token (a word, time step, frame)
+- **Processing function** → the RNN cell (same weights at every step)
+- **Final accumulator value** → final hidden state (the full sequence summary)
+- **Reduce's initial value** → h₀ (zeros — no memory at start)
+- **Different reduce functions** → RNN vs GRU vs LSTM (different "processing functions")
 
-## Real-World Examples
+---
 
-- **Text generation** — predict the next word in a sentence
-- **Machine translation** — English → French (sequence to sequence)
-- **Speech recognition** — audio waveform → text
-- **Stock price prediction** — past prices → future prices
-- **Music generation** — past notes → next note
-- **Sentiment analysis** — read a review → positive/negative
+## 3. Why It Exists
 
-## How a Basic RNN Works
+**The problem:** Standard neural networks process each input independently — feed "cat" in position 1 and "cat" in position 50, and the network treats them identically. There's no way to represent that "the bank" means different things in "river bank" vs "bank account" depending on surrounding context.
 
-### Step by Step Through a Sentence
+**What came before:** N-gram models (count word co-occurrences), hidden Markov models (probabilistic state machines). Both failed to capture long-range dependencies.
 
-Processing: "I love coding"
+**What changed:** RNNs (introduced 1980s, popularized 1990s) provided a principled way to process variable-length sequences by maintaining a persistent state. LSTMs (Hochreiter & Schmidhuber, 1997) solved RNNs' forgetting problem with gating mechanisms, enabling everything from machine translation to speech recognition through the 2010s.
 
-```
-Step 1: Input "I"
-  state₁ = f(W × "I" + U × state₀)        state₀ = zeros (no memory yet)
+---
 
-Step 2: Input "love"
-  state₂ = f(W × "love" + U × state₁)     state₁ carries info about "I"
+## 4. Core Concepts
 
-Step 3: Input "coding"
-  state₃ = f(W × "coding" + U × state₂)   state₂ carries info about "I love"
+### Hidden State
 
-Output = g(state₃)                          Final state has the full sentence context
-```
+**One-line definition:** A vector that persists between steps, carrying information about what the RNN has seen so far.
 
-Visually:
+**Analogy:** The accumulator in `reduce()` — it carries the running total (summary of past inputs) forward to influence the processing of each new item.
 
 ```
-"I"          "love"        "coding"
- ↓             ↓             ↓
-┌────┐       ┌────┐       ┌────┐
-│RNN │──h₁──→│RNN │──h₂──→│RNN │──h₃──→ Output
-│Cell│       │Cell│       │Cell│
-└────┘       └────┘       └────┘
-
-Same cell, same weights, reused at each step
-h = hidden state (the "memory")
+"I"     → RNN Cell → h₁ = f("I",   h₀)
+"love"  → RNN Cell → h₂ = f("love", h₁)  ← h₁ carries info about "I"
+"coding"→ RNN Cell → h₃ = f("coding", h₂) ← h₂ carries info about "I love"
 ```
 
-**Key insight:** It's the **same cell** with the **same weights** at every step. The only thing that changes is the input and the hidden state.
+**Common misconception:** ❌ "The hidden state stores raw past words" → ✅ It stores a learned, compressed representation — not the words themselves, but patterns and relationships the network found important.
 
-## The Problem: Vanishing Gradients (Again)
+---
 
-Basic RNNs forget. In a long sequence, information from early steps **fades away**:
+### The Vanishing Gradient Problem in RNNs
 
-```
-"The cat, which was sitting on the mat in the living room next to the
- fireplace where the family gathers every evening during winter, was ..."
+**One-line definition:** In long sequences, gradient signals shrink exponentially as they travel back through time steps — early steps stop learning.
 
-By the time we get to "was", the RNN has forgotten "cat".
-Gradient has been multiplied through ~20 steps → vanished to near zero.
-```
-
-Basic RNN memory: ~5-10 steps back. After that, it forgets.
-
-## LSTM — The Solution (Long Short-Term Memory)
-
-LSTM solves the memory problem with **gates** — learned mechanisms that control what to **remember**, what to **forget**, and what to **output**.
-
-### The LSTM Cell — A Smart Memory Unit
-
-Think of an LSTM cell as a **to-do app** with 3 controls:
+**Analogy:** Shouting a message down a long hallway where each room absorbs 50% of the sound. By room 20, no one hears anything.
 
 ```
-┌──────────────────────────────────┐
-│            LSTM Cell             │
-│                                  │
-│  🗑 FORGET GATE: "Delete old tasks that are done"
-│     → Decides what to remove from memory
-│                                  │
-│  📥 INPUT GATE: "Add new tasks"
-│     → Decides what new info to store
-│                                  │
-│  📤 OUTPUT GATE: "Show relevant tasks"
-│     → Decides what memory to use for current output
-│                                  │
-│  📋 CELL STATE: "The actual to-do list"
-│     → Long-term memory that flows through unchanged
-│        (unless gates modify it)
-└──────────────────────────────────┘
+"The cat, which sat on the mat by the fire in the kitchen, was ..."
+
+By the time we need "was" to agree with "cat" (20 words back),
+the gradient from "was" has been multiplied through 20 steps:
+  0.7^20 ≈ 0.0008   ← nearly zero, "cat" gets no update signal
 ```
 
-### Why Gates Work
+Basic RNN practical memory limit: ~5–10 steps. After that, it forgets.
 
-The cell state is like a **conveyor belt** — information flows through unchanged by default:
+**Common misconception:** ❌ "More hidden units solve the forgetting problem" → ✅ Larger hidden states store more *at any given step*, but they still forget long-range dependencies. The problem is gradient flow, not storage capacity.
 
-```
-Cell state:  ──────────────────────────────────→
-                  ↑ add        ↑ add        ↑ add
-                  ↓ forget     ↓ forget     ↓ forget
-             [LSTM Cell]  [LSTM Cell]  [LSTM Cell]
-                  ↑             ↑             ↑
-               input₁       input₂       input₃
-```
+---
 
-Without intervention, the cell state passes through unmodified (gradient = 1, no vanishing!). The gates learn **when** to add or remove information. This is why LSTM can remember things 100+ steps back.
+### LSTM Gates
 
-### LSTM vs Basic RNN
+**One-line definition:** Three learned mechanisms that control what information to keep, what to add, and what to output from the LSTM cell.
 
-| Basic RNN | LSTM |
-|-----------|------|
-| 1 simple state | Cell state + hidden state |
-| No gates | 3 gates (forget, input, output) |
-| Forgets after ~5-10 steps | Remembers 100+ steps |
-| Simple, fast | More complex, slower |
-| Rarely used alone anymore | Still widely used |
-
-## GRU — The Simplified LSTM
-
-GRU (Gated Recurrent Unit) is a **lighter version** of LSTM with 2 gates instead of 3:
+**Analogy:** Think of an LSTM cell as a to-do list app with smart controls:
 
 ```
-LSTM: 3 gates (forget, input, output) + cell state
-GRU:  2 gates (reset, update) — no separate cell state
+┌────────────────────────────────────────┐
+│               LSTM Cell                │
+│                                        │
+│  🗑 FORGET GATE  "Delete done tasks"   │
+│    → What old memory to erase          │
+│                                        │
+│  📥 INPUT GATE   "Add new tasks"       │
+│    → What new information to store     │
+│                                        │
+│  📤 OUTPUT GATE  "Show relevant tasks" │
+│    → What memory to expose as output   │
+│                                        │
+│  📋 CELL STATE   "The actual list"     │
+│    → Long-term memory (conveyor belt)  │
+└────────────────────────────────────────┘
 ```
 
-- **Similar performance** to LSTM in most tasks
-- **Faster** to train (fewer parameters)
-- **Use GRU** when you're not sure — it's simpler and usually works just as well
-
-## Bidirectional RNNs
-
-Standard RNN only reads left → right. But sometimes you need context from **both directions**:
+**The key insight — the cell state as a conveyor belt:**
 
 ```
-"The bank of the river"     ← "bank" means riverbank
-"The bank approved the loan" ← "bank" means financial institution
+Cell state:  ─────────────────────────────────→
+                 ↑ add    ↑ add    ↑ add
+                 ↓ forget ↓ forget ↓ forget
+             [LSTM]   [LSTM]   [LSTM]
+                ↑         ↑         ↑
+             word₁     word₂     word₃
 ```
 
-A bidirectional RNN reads **both ways** and combines:
+The cell state flows through unchanged by default (gradient ≈ 1 — no vanishing!). Gates selectively modify it. This is why LSTMs remember 100+ steps.
+
+**Common misconception:** ❌ "LSTM gates are fixed rules" → ✅ All gate values are learned during training. The network learns what's worth remembering for each specific task.
+
+---
+
+### GRU (Gated Recurrent Unit)
+
+**One-line definition:** A simplified LSTM with 2 gates instead of 3 — similar performance, fewer parameters, faster to train.
+
+**Analogy:** A folding knife vs a Swiss Army knife — the GRU does the job with fewer tools.
 
 ```
-Forward:   → → → → →
-                        } Combine outputs
-Backward:  ← ← ← ← ←
+LSTM: forget gate + input gate + output gate + cell state
+GRU:  reset gate + update gate (no separate cell state)
+
+Performance: usually within 1-2% of LSTM
+Speed: ~30% faster to train (fewer parameters)
+Rule of thumb: start with GRU, switch to LSTM only if clearly needed
+```
+
+**Common misconception:** ❌ "LSTM is always better than GRU" → ✅ Empirically, they're neck-and-neck on most tasks. GRU is simpler and a fine default.
+
+---
+
+### Bidirectional RNNs
+
+**One-line definition:** Two RNNs processing the sequence in opposite directions — combining both gives each position context from both past and future.
+
+**Analogy:** Reading a sentence forward for grammar and backward for meaning, then combining both readings.
+
+```
+"The bank of the river"   ← "bank" meaning depends on "river" (comes AFTER)
+  Forward:  → → → → →
+  Backward: ← ← ← ← ←
+  Combined: each word sees full sentence context
 ```
 
 ```python
 lstm = nn.LSTM(input_size=100, hidden_size=256, bidirectional=True)
-# Output size doubles: 256 × 2 = 512
+# Output dim doubles: 256 × 2 = 512 (forward + backward concatenated)
 ```
 
-## When to Use RNNs/LSTMs (and When NOT To)
+**Common misconception:** ❌ "Bidirectional RNNs can generate text" → ✅ They can only be used for tasks where you have the full sequence upfront (classification, named entity recognition). Text generation requires left-to-right (can't look ahead).
 
-| Good For | Use Instead |
-|----------|-------------|
-| Short sequences (< 100 tokens) | **Transformers** for long sequences |
-| Time series forecasting | **Transformers** for NLP tasks |
-| Simple sequence tasks | **Transformers** for state-of-the-art results |
-| Low-resource environments | **Transformers** if you have GPU |
-| Real-time streaming data | **Transformers** for batch processing |
+---
 
-**Important reality check:** For most NLP tasks today, **Transformers have replaced RNNs/LSTMs**. But understanding RNNs is essential because:
-1. They explain why Transformers were invented
-2. They're still used for time series and streaming
-3. LSTM concepts (gating) appear everywhere in modern architectures
+### Sequence-to-Sequence
 
-## Python Example
+**One-line definition:** An encoder RNN compresses the input sequence into a fixed vector; a decoder RNN expands it into an output sequence.
 
+**Analogy:** Translation — you read (encode) the whole French sentence, form an understanding, then speak (decode) the English equivalent.
+
+```
+Input: "Je t'aime"
+Encoder: "Je"→h₁→"t'aime"→h₂→"."→h₃ = [context vector]
+                                              ↓
+Decoder: h₃→"I"→"love"→"you"→"<end>"
+```
+
+**Common misconception:** ❌ "The context vector can hold unlimited information" → ✅ The fixed-size vector is a bottleneck — it can't faithfully encode long sequences. This is exactly what attention (and later Transformers) was designed to fix.
+
+---
+
+## 5. How It Actually Works — Step by Step
+
+Processing "I love coding" for sentiment classification:
+
+```
+Step 1: TOKENIZE
+  "I love coding" → [token_1=42, token_2=831, token_3=156]
+
+Step 2: EMBED
+  Each token index → dense vector (learned)
+  [42, 831, 156] → [[0.2, -0.5, ...], [0.8, 0.1, ...], [-0.3, 0.9, ...]]
+  Shape: [sequence_len=3, embed_dim=128]
+
+Step 3: LSTM FORWARD PASS
+
+  t=1: input="I" embedding [128-dim]
+       h₀ = zeros [256-dim]
+       Forget gate: sigmoid(W_f × [h₀, x]) → what to erase from cell
+       Input gate:  sigmoid(W_i × [h₀, x]) → what new info to add
+       Cell update: tanh(W_c × [h₀, x])   → candidate new memory
+       Cell state:  c₁ = forget×c₀ + input×cell_update
+       Output gate: sigmoid(W_o × [h₀, x]) → what to expose
+       h₁ = output_gate × tanh(c₁)
+
+  t=2: input="love" + h₁ (carries info about "I")
+       → h₂ (carries info about "I love")
+
+  t=3: input="coding" + h₂
+       → h₃ (carries info about full "I love coding")
+
+Step 4: CLASSIFY
+  h₃ → Linear(256, 1) → Sigmoid → 0.92 = "92% positive" ✓
+
+Step 5: LOSS + BACKPROP THROUGH TIME
+  Binary CE loss: -log(0.92) = 0.083
+  Gradients flow backwards through t=3, t=2, t=1
+  (Cell state highway preserves gradient ≈ 1 through each step)
+  All weights updated: embedding, LSTM gates, classifier
+```
+
+---
+
+## 6. Code in Practice
+
+### Minimal — LSTM layer
 ```python
 import torch
 import torch.nn as nn
 
+lstm = nn.LSTM(
+    input_size=128,     # embedding dim
+    hidden_size=256,    # hidden state size
+    batch_first=True,   # input shape: [batch, seq, features]
+)
+
+x = torch.randn(4, 20, 128)     # batch=4, seq_len=20, embed=128
+output, (h_n, c_n) = lstm(x)
+
+print(output.shape)   # [4, 20, 256] — hidden state at every step
+print(h_n.shape)      # [1, 4, 256]  — final hidden state
+```
+
+### Practical — Sentiment classifier with LSTM
+```python
 class SentimentLSTM(nn.Module):
     def __init__(self, vocab_size, embed_dim=128, hidden_dim=256):
         super().__init__()
-        # Convert word indices to dense vectors
-        self.embedding = nn.Embedding(vocab_size, embed_dim)
-
-        # LSTM processes the sequence
+        self.embedding = nn.Embedding(vocab_size, embed_dim, padding_idx=0)
         self.lstm = nn.LSTM(
             input_size=embed_dim,
             hidden_size=hidden_dim,
-            num_layers=2,          # stack 2 LSTM layers
-            batch_first=True,      # input shape: (batch, sequence, features)
-            dropout=0.3,           # regularization between layers
-            bidirectional=True,    # read both directions
+            num_layers=2,
+            batch_first=True,
+            dropout=0.3,
+            bidirectional=True,
         )
-
-        # Classify based on final hidden state
         self.classifier = nn.Sequential(
-            nn.Linear(hidden_dim * 2, 64),  # × 2 because bidirectional
+            nn.Linear(hidden_dim * 2, 64),   # ×2 for bidirectional
             nn.ReLU(),
-            nn.Linear(64, 1),               # 1 output: positive/negative
+            nn.Dropout(0.3),
+            nn.Linear(64, 1),
         )
 
     def forward(self, x):
-        # x shape: (batch_size, sequence_length) — word indices
+        embedded = self.embedding(x)              # [B, seq, embed]
+        _, (h_n, _) = self.lstm(embedded)          # h_n: [4, B, hidden]
+        # Concatenate final forward + backward hidden states
+        last = torch.cat([h_n[-2], h_n[-1]], dim=1)  # [B, hidden*2]
+        return self.classifier(last)               # [B, 1]
 
-        embedded = self.embedding(x)        # (batch, seq, embed_dim)
-        lstm_out, (hidden, cell) = self.lstm(embedded)
-
-        # Take the last hidden state from both directions
-        # hidden shape: (num_layers * 2, batch, hidden_dim)
-        last_hidden = torch.cat([hidden[-2], hidden[-1]], dim=1)
-
-        output = self.classifier(last_hidden)
-        return output
-
-# Create model
 model = SentimentLSTM(vocab_size=10000)
-
-# Dummy input: batch of 4 sentences, each 50 words (as word indices)
-x = torch.randint(0, 10000, (4, 50))
-output = model(x)
-print(f"Output shape: {output.shape}")  # [4, 1] — one score per sentence
+x = torch.randint(1, 10000, (8, 50))   # batch=8, seq_len=50
+print(model(x).shape)                   # [8, 1]
 ```
 
-## Key Takeaway
+### Real-world — GRU for time series
+```python
+class TimeSeriesGRU(nn.Module):
+    def __init__(self, input_features=5, hidden=128, forecast_steps=1):
+        super().__init__()
+        self.gru = nn.GRU(
+            input_size=input_features,
+            hidden_size=hidden,
+            num_layers=2,
+            batch_first=True,
+            dropout=0.2,
+        )
+        self.fc = nn.Linear(hidden, forecast_steps)
 
-RNNs process sequences by maintaining a **hidden state** that carries information from step to step — like `Array.reduce()`. Basic RNNs forget too quickly, so **LSTM** adds gates to control memory (what to keep, what to forget, what to output). While Transformers have largely replaced LSTMs for NLP, understanding RNNs teaches you **why sequence modeling is hard** and prepares you for the Transformer architecture. LSTMs are still the go-to for time series and streaming data.
+    def forward(self, x):
+        out, _ = self.gru(x)
+        return self.fc(out[:, -1, :])  # use last time step for prediction
+
+# Input: [batch=32, seq_len=60, features=5] — 60 days of 5 stock metrics
+model = TimeSeriesGRU(input_features=5, hidden=128, forecast_steps=1)
+```
+
+---
+
+## 7. Gotchas & Pitfalls
+
+| ❌ Wrong Assumption | ✅ Reality |
+|---|---|
+| `batch_first=False` by default | Default input shape is `[seq, batch, features]` — set `batch_first=True` to use `[batch, seq, features]` (more intuitive) |
+| LSTM output is just the final hidden state | `output` contains hidden states at *every* step; `h_n` is just the final one. Use `output` for sequence labeling, `h_n` for classification |
+| Bidirectional doubles hidden_size automatically | It doubles the **output** dimension — your downstream layer must account for `hidden_size * 2` |
+| RNNs handle variable-length sequences natively | You need `pack_padded_sequence` and `pad_packed_sequence` for proper variable-length handling |
+| GRU/LSTM are slow to train | They're sequential by nature — can't parallelize across time steps. On long sequences, this is real; Transformers are much faster |
+| LSTM is the right choice for NLP | For NLP tasks where you have the full sequence, use Transformers. LSTM shines for streaming/real-time and time series |
+| Forget to reset hidden state between batches | By default PyTorch initializes h₀=zeros — this is fine for independent sequences but you must explicitly manage state for streaming |
+
+---
+
+## 8. When to Use / When NOT to Use
+
+**Use RNN/LSTM/GRU when:**
+- Real-time/streaming data where you can't see the full sequence upfront
+- Time series forecasting (stock prices, sensor readings, weather)
+- Low-resource environments where Transformers' memory footprint is prohibitive
+- Sequences with strong local structure and short-range dependencies (< 50 steps)
+- Online learning where inputs arrive one at a time
+
+**Do NOT use RNN/LSTM when:**
+- Full NLP tasks (text classification, translation, summarization) — use Transformers
+- You have GPU memory to spare — Transformers are faster and usually better
+- Sequences are very long (> 200 tokens) — vanishing gradients will still hurt
+- You need bidirectional context AND generation — use Transformer decoders instead
+
+---
+
+## 9. Related Concepts (The Map)
+
+- **Vanishing gradients** — the core problem RNNs suffer from, and why LSTMs were invented; the same issue that ReLU and skip connections solve in feedforward networks (see `backpropagation.md`)
+- **Transformers** — replaced LSTMs for most NLP tasks by solving the forgetting problem with attention (direct connections between all positions) rather than gating; understanding RNNs makes Transformers click (see `transformers.md`)
+- **Attention mechanism** — originally added ON TOP of RNNs (Bahdanau attention, 2014) to let the decoder look directly at encoder outputs; this later evolved into self-attention and the Transformer architecture
+- **Embeddings** — RNNs process token embeddings (`nn.Embedding`), not raw indices; same as Transformers (see `transformers.md`)
+- **Regularization** — dropout works differently in RNNs: applied between layers, not within recurrent connections (use `dropout` param in `nn.LSTM`); see `regularization.md`
+
+---
+
+## 10. Cheat Sheet
+
+| Model | Gates | Memory | Speed | Use When |
+|---|---|---|---|---|
+| **RNN** | 0 | ~5–10 steps | Fast | Almost never — use GRU instead |
+| **GRU** | 2 | 50–100 steps | Medium | Time series, streaming (default) |
+| **LSTM** | 3 | 100+ steps | Slower | When GRU isn't enough |
+| **Transformer** | Attention | 1000s tokens | Fastest (parallel) | NLP, full-sequence tasks |
+
+**LSTM output shapes (`batch_first=True`):**
+```python
+output, (h_n, c_n) = lstm(x)
+# x:      [batch, seq_len, input_size]
+# output: [batch, seq_len, hidden_size × num_directions]
+# h_n:    [num_layers × num_directions, batch, hidden_size]
+# c_n:    [num_layers × num_directions, batch, hidden_size]
+```
+
+**Remember these 3 things:**
+1. RNN = `Array.reduce()` — same hidden state passed through each step
+2. LSTM gates are what enable long-range memory — they control the cell state conveyor belt
+3. For NLP: use Transformers. For time series / streaming: use GRU or LSTM.
+
+---
+
+## 11. Self-Check Questions
+
+1. How is an RNN structurally similar to `Array.reduce()`? What maps to what?
+2. Why do basic RNNs forget information from early in long sequences?
+3. What problem do LSTM gates solve, and how does the cell state help?
+4. You're building a real-time stock price predictor that takes in the last 30 days and outputs tomorrow's price. Should you use an LSTM or a Transformer? Why?
+5. What does `bidirectional=True` do, and what constraint does it impose on the task?
+
+<details>
+<summary>Brief Answers</summary>
+
+1. In `reduce(callback, initialValue)`: the **accumulator** maps to the **hidden state** (carries memory forward), the **current element** maps to the **current input token**, the **callback function** maps to the **RNN cell** (same function/weights reused at every step), and the **final accumulated value** maps to the **final hidden state** (the sequence summary).
+
+2. Because gradients must travel backward through every time step via the chain rule — multiplied at each step. If each multiplication is slightly less than 1 (which happens with sigmoid/tanh activations that saturate), the gradient shrinks exponentially. After 20 steps: `0.7^20 ≈ 0.0008`. Early steps receive essentially no gradient signal and stop learning — the network "forgets" what happened there.
+
+3. Vanilla RNNs have vanishing gradients because the hidden state is fully recomputed at every step (gradient must flow through all transformations). LSTMs add a **cell state** — a separate memory that flows through with minimal modification (gate outputs near 1 → gradient ≈ 1, no vanishing). The three gates (forget, input, output) *learn* what to add/remove/use from the cell state, allowing the network to preserve important information for 100+ steps.
+
+4. **LSTM** (or GRU). A real-time predictor processes prices as they arrive — it's a streaming task where you're building state step by step and predicting the next value. Transformers require the full sequence in memory and process it all in parallel (not streaming). For this causal, time-ordered prediction task, an LSTM is more appropriate and computationally efficient.
+
+5. `bidirectional=True` runs two LSTMs simultaneously — one left-to-right, one right-to-left — then concatenates their outputs at each position (doubling output dimension). This means each position has context from both the past and the future. **Constraint**: you must have the complete sequence available before processing. This means bidirectional RNNs **cannot generate text** or handle real-time streaming — they require the full input upfront.
+
+</details>
+
+---
+
+## 12. Go Deeper
+
+- **"Long Short-Term Memory" (Hochreiter & Schmidhuber, 1997)**: The original LSTM paper. Dense but foundational — reading section 1-3 gives you the exact mathematical motivation for each gate. [Why: understanding *why* the cell state was designed the way it was makes it memorable, not just a black box.]
+
+- **Andrej Karpathy — "The Unreasonable Effectiveness of RNNs"** (karpathy.github.io/2015/05/21/rnn-effectiveness): The famous blog post where Karpathy trains character-level LSTMs to generate Shakespeare, Linux kernel code, and Wikipedia markup. [Why: the most convincing demonstration of what RNNs can learn — and a great hands-on project to replicate.]
+
+- **Christopher Olah — "Understanding LSTMs"** (colah.github.io/posts/2015-08-Understanding-LSTMs): The best visual explanation of LSTM internals — gate diagrams, cell state flow, and intuition. [Why: if the LSTM cell still feels opaque after reading this doc, Olah's diagrams will make it click.]
+
+- **PyTorch RNN tutorial** (pytorch.org/tutorials/intermediate/char_rnn_classification_tutorial): Official character-level RNN tutorial for name classification. Short, runnable, and teaches the `pack_padded_sequence` API. [Why: practical PyTorch patterns for variable-length sequences that you'll use in real projects.]
+
+- **"Empirical Evaluation of Gated Recurrent Neural Networks on Sequence Modeling" (Chung et al., 2014)**: The paper that compared RNN, GRU, and LSTM systematically. GRU often matches LSTM with fewer parameters. [Why: the empirical evidence for why GRU is a good default, not just intuition.]

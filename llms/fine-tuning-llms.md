@@ -1,522 +1,619 @@
 # Fine-tuning LLMs (LoRA, QLoRA, PEFT)
 
-## What Is It?
+## TL;DR
 
-Fine-tuning takes a pre-trained LLM and **trains it further on your specific data** so it learns new behaviors, knowledge, or styles. Instead of building an AI model from scratch (which costs millions), you adapt an existing one to your needs for a fraction of the cost.
+Fine-tuning takes a pre-trained LLM and trains it further on your specific data so it learns new behaviors, styles, or domain-specific patterns. You're not building from scratch — you're customizing an existing model for your needs. LoRA (Low-Rank Adaptation) makes this practical by training only 0.1% of parameters; QLoRA compresses the model further so a 70B model fits on a single consumer GPU. Fine-tune for *behavior* (style, format, following domain conventions) — not for *facts* (use RAG for that).
 
-```
-Pre-trained LLM (general purpose)
-        │
-        ▼  + Your specific data
-┌─────────────────┐
-│  Fine-tuning     │  "Learn to write like our brand"
-│  (hours, not     │  "Learn our internal API docs"
-│   months)        │  "Learn medical terminology"
-└────────┬────────┘
-         │
-         ▼
-  Your Custom Model (specialized)
-```
+> 💡 **Key Insight:** Fine-tuning changes HOW the model responds. RAG changes WHAT the model knows. Don't confuse them — this mistake wastes weeks of effort.
 
-## Frontend Analogy
+---
 
-```javascript
-// Fine-tuning is like theming a component library
+## The Mental Model
 
-// Pre-trained model = Material UI (generic, works for everyone)
-// Fine-tuned model = Material UI + your company theme + custom components
+**Think of fine-tuning like teaching a foreign exchange student your company's specific way of doing things.**
 
-// You don't rewrite Material UI from scratch.
-// You take it as-is and customize the parts you need:
+The student already speaks English fluently and knows general programming (that's the pre-trained model). You're not re-teaching them English. You're teaching them your team's code review standards, your customer support tone, your internal jargon. A few weeks of focused practice, and they respond like a senior member of your team.
 
-// import { ThemeProvider } from '@mui/material';
-// const companyTheme = createTheme({
-//   palette: { primary: '#1a73e8' },
-//   typography: { fontFamily: 'Inter' },
-//   // Your specific customizations
-// });
-//
-// <ThemeProvider theme={companyTheme}>
-//   <App />  {/* Everything inside now uses your style */}
-// </ThemeProvider>
+| Real world | Technical concept |
+|------------|------------------|
+| Student already knows English | Pre-trained model has general knowledge |
+| Teaching team-specific practices | Fine-tuning on your domain data |
+| Practice exercises with feedback | Training on (input, ideal output) pairs |
+| Only learning company-specific parts | Parameter-efficient fine-tuning (PEFT) |
+| Student adapts without losing English | Catastrophic forgetting risk |
+| Different trainees, same knowledge | Multiple LoRA adapters on one base model |
 
-// Fine-tuning = adding your "theme" to a base model
-// The model's core capabilities stay, but behavior changes
-```
+---
 
-## When to Fine-tune vs When NOT to
+## Why It Exists (Problem → Solution)
+
+**The problem:** General-purpose LLMs don't know your domain. They don't write in your brand voice, don't follow your exact JSON schema, don't understand your internal product terminology, and aren't consistently reliable for your specific task even with perfect prompts.
+
+**What came before:** Full retraining from scratch — impossibly expensive for most teams ($1M+). Or endlessly tweaking prompts and accepting inconsistency.
+
+**What changed:** PEFT methods (2021–2022) — especially LoRA — made fine-tuning possible without expensive GPU clusters. You can adapt a powerful base model for your specific needs in hours, on a single GPU, for less than $100. This democratized model customization.
+
+---
+
+## Core Concepts
+
+### 1. When to Fine-tune vs. When NOT to
+
+**Plain English:** Fine-tuning is expensive and slow compared to prompting. Only reach for it when prompting reliably fails. It's a scalpel, not a hammer.
+
+**Analogy:** Training a new employee vs. writing better instructions. If a well-written memo solves the problem, don't spend 3 months in training. Fine-tuning is the training program — use it when the memo isn't enough.
 
 ```
-✅ FINE-TUNE WHEN:
-─────────────────
-- You need a specific writing style/tone consistently
-- You need the model to follow a complex format every time
-- Prompt engineering alone can't get reliable results
-- You have domain-specific jargon (legal, medical, finance)
-- You need faster/cheaper inference (smaller fine-tuned model
-  can match bigger base model on your specific task)
-
-❌ DON'T FINE-TUNE WHEN:
-──────────────────────
-- You just need the model to know specific facts → use RAG
-- A good system prompt already solves it → use prompt engineering
-- You need real-time/updating data → use RAG
-- You have less than ~100 high-quality examples → too few
-- The base model already does the task well → don't fix what isn't broken
-```
-
-```
-Decision Tree:
+Decision tree:
                                     
-  Does the base model do it well?
-        │
-        ├── YES → Don't fine-tune. You're done.
-        │
-        └── NO → Can prompt engineering fix it?
-                    │
-                    ├── YES → Don't fine-tune. Better prompts are cheaper.
-                    │
-                    └── NO → Is it about KNOWING facts or DOING a behavior?
-                                │
-                                ├── KNOWING → Use RAG (cheaper, updatable)
-                                │
-                                └── DOING → Fine-tune! ✅
-                                           (style, format, domain behavior)
+Does the base model do it well with the right prompt?
+      │
+      ├── YES → Don't fine-tune. You're done.
+      │
+      └── NO → Can better prompt engineering fix it?
+                  │
+                  ├── YES → Don't fine-tune. Write better prompts.
+                  │
+                  └── NO → Is it about KNOWING facts or DOING a behavior?
+                              │
+                              ├── KNOWING → Use RAG. (cheaper, updatable)
+                              │
+                              └── DOING → Fine-tune ✅
+                                         (style, format, domain behavior)
 ```
 
-## Full Fine-tuning vs Parameter-Efficient Methods
-
-### Full Fine-tuning
-
-Update **all** the model's parameters. Expensive but thorough.
-
 ```
-Llama 3 70B has 70 billion parameters
-Full fine-tuning: update all 70B parameters
-Requires: 4-8 × A100 GPUs (80GB each), ~$5,000-$50,000
+✅ Good reasons to fine-tune:
+  - Need specific writing style consistently (brand voice, legal tone)
+  - Need strict output format the model keeps getting wrong
+  - Domain jargon the model misinterprets (medical, legal, finance)
+  - Task requires specialized reasoning patterns
+  - Need faster/cheaper inference (small fine-tuned model ≈ large base model)
 
-You need:
-  - 140GB+ GPU memory (the model alone is 140GB in FP16)
-  - Training data × batch size × gradient memory
-  - Total: ~500-700GB GPU memory
-  
-This is impractical for most teams.
+❌ Bad reasons to fine-tune:
+  - "I want the model to know our product docs" → use RAG
+  - "The base model is almost right" → fix the prompt first
+  - "We have 50 examples" → too few, use few-shot prompting
+  - "We need real-time data" → use RAG
 ```
 
-### PEFT (Parameter-Efficient Fine-Tuning)
+**Common misconception:** Fine-tuning teaches the model new facts. It teaches *behaviors*, not facts. If you fine-tune on your product docs, the model will write responses *in the style* of your docs but will still hallucinate facts. For knowledge, use RAG.
 
-Only update a **small fraction** of parameters. Same results, 100x cheaper.
+---
 
-```
-PEFT Methods:
-┌────────────────────────────────────────────────────────────┐
-│  Method     │ Params Updated │ Memory Needed │ Quality     │
-├────────────────────────────────────────────────────────────┤
-│  Full FT    │ 100%           │ 500-700GB     │ ⭐⭐⭐⭐⭐    │
-│  LoRA       │ 0.1-1%         │ 16-48GB       │ ⭐⭐⭐⭐      │
-│  QLoRA      │ 0.1-1%         │ 8-24GB        │ ⭐⭐⭐⭐      │
-│  Prefix     │ <0.1%          │ 8-16GB        │ ⭐⭐⭐       │
-│  Adapters   │ <1%            │ 16-32GB       │ ⭐⭐⭐⭐      │
-└────────────────────────────────────────────────────────────┘
+### 2. Full Fine-tuning vs. PEFT
 
-LoRA and QLoRA are by far the most popular. Learn these first.
-```
+**Plain English:** Full fine-tuning updates all model parameters — impossibly expensive for large models. PEFT methods update only a tiny fraction — same quality, 100× cheaper.
 
-## LoRA (Low-Rank Adaptation)
-
-### The Core Idea
-
-Instead of updating the model's huge weight matrices, LoRA adds **small trainable matrices** alongside them. The original weights stay frozen.
+**Analogy:** Full fine-tuning is renovating every room in a house. LoRA is adding a few key pieces of furniture — enough to make it feel completely different without touching the structure.
 
 ```
-Original weight matrix W: 4096 × 4096 = 16.7M parameters
-                          (frozen, never changes)
+Method          Params Updated   GPU Memory Needed   Cost
+──────────────────────────────────────────────────────────
+Full FT         100%             500–700 GB          $$$$$$
+LoRA            0.1–1%           16–48 GB            $$
+QLoRA           0.1–1%           8–24 GB             $
+Prefix Tuning   <0.1%            8–16 GB             $
+Adapters        <1%              16–32 GB            $$
+
+→ LoRA and QLoRA dominate in practice. Learn these.
+```
+
+**Common misconception:** PEFT methods compromise quality. Well-tuned LoRA matches full fine-tuning quality on most tasks, especially when the task doesn't require fundamentally changing the model's knowledge.
+
+---
+
+### 3. LoRA (Low-Rank Adaptation)
+
+**Plain English:** Instead of updating the model's huge weight matrices, LoRA adds two small trainable matrices alongside each weight layer. The original weights stay frozen — only the tiny LoRA matrices train.
+
+**Analogy:** Think of CSS `!important` overrides. You don't rewrite the entire stylesheet — you add a small override file that changes only what you need, while the original stylesheet stays intact.
+
+```
+Standard weight matrix W: 4096 × 4096 = 16.7M parameters
+                          (frozen, never changes during fine-tuning)
 
 LoRA adds two small matrices:
-  A: 4096 × 16 = 65,536 parameters  (random init)
-  B: 16 × 4096 = 65,536 parameters  (zero init)
-
+  A: 4096 × 16   = 65,536 parameters  (random init)
+  B: 16   × 4096 = 65,536 parameters  (zero init)
+  
 Total LoRA params: 131,072  (0.8% of original!)
 
-During inference:
-  output = W·x + (B·A)·x
-          ↑         ↑
-     original    LoRA adjustment
-     (frozen)    (trained)
-```
-
-### Visual Explanation
-
-```
-Standard Fine-tuning:
-┌──────────────────────────┐
-│  W (4096 × 4096)         │  ← Update ALL 16.7M params
-│  ████████████████████████ │
-│  ████████████████████████ │
-│  ████████████████████████ │
-└──────────────────────────┘
-
-LoRA Fine-tuning:
-┌──────────────────────────┐     ┌──────┐   ┌──────────────────────────┐
-│  W (4096 × 4096)         │  +  │A(4096│ × │B (16 × 4096)             │
-│  ░░░░░░░░░░░░░░░░░░░░░░░ │     │× 16) │   │████████████████████████  │
-│  ░░░░░░░░░░░░░░░░░░░░░░░ │     │██████│   └──────────────────────────┘
-│  ░░░░░░░░░░░░░░░░░░░░░░░ │     │██████│     Only train the ████ parts
-└──────────────────────────┘     └──────┘     (0.8% of total params)
-         FROZEN                   TRAINED
-```
-
-### Why It Works
-
-```
-Key insight: The changes needed for fine-tuning live in a LOW-RANK space.
-
-You don't need to change all 16.7M values in W.
-The adjustment can be expressed as two small matrices multiplied together.
-
-Think of it like this:
-  - Full fine-tuning: moving every pixel in a 4K image
-  - LoRA: moving a few control points that warp the image
-
-Both achieve the same visual result, but LoRA is way more efficient.
-```
-
-```javascript
-// Frontend analogy:
-
-// Full fine-tuning = forking the entire React codebase and modifying it
-// LoRA = creating a small plugin that modifies React's behavior at runtime
-
-// The React source code stays unchanged (frozen weights)
-// Your plugin adds small interceptors (LoRA matrices)
-// The result behaves differently, but React itself wasn't touched
-
-// Another way: CSS overrides
-// Full FT = rewriting the entire stylesheet
-// LoRA = adding a small override.css that changes just what you need
-//        .button { color: blue; }  ← small change, big visual impact
-```
-
-### The "Rank" in LoRA (the r parameter)
-
-```
-r = the inner dimension of the LoRA matrices (A and B)
-
-r = 8:   A is 4096×8,  B is 8×4096   → 65K params  (very small)
-r = 16:  A is 4096×16, B is 16×4096  → 131K params (small)
-r = 64:  A is 4096×64, B is 64×4096  → 524K params (medium)
-r = 256: A is 4096×256, B is 256×4096 → 2M params  (getting large)
-
-Higher r = more capacity to learn = better but more expensive
-Start with r=16 for most tasks. Increase if quality is insufficient.
-```
-
-## QLoRA (Quantized LoRA)
-
-QLoRA = LoRA but the frozen base model is **compressed (quantized)** to use less memory.
-
-```
-Normal model (FP16):     Each parameter = 16 bits → 70B model = 140GB
-4-bit quantized model:   Each parameter = 4 bits  → 70B model = 35GB
-
-QLoRA:
-  1. Quantize base model to 4-bit (frozen, saves memory)
-  2. Add LoRA adapters in full precision (trainable)
-  3. Train only the LoRA adapters
-
-Result: Fine-tune a 70B model on a single 24GB GPU!
+During forward pass:
+  output = W·x  +  scale × (B·A)·x
+           ↑              ↑
+      original        LoRA adjustment
+      (frozen)        (trained on your data)
 ```
 
 ```
-Memory comparison for Llama 3 70B:
+Visual comparison:
 
-Full fine-tuning:    ~600GB GPU memory  (8× A100 80GB)     💰💰💰💰💰
-LoRA (FP16):         ~160GB GPU memory  (2× A100 80GB)     💰💰💰
-QLoRA (4-bit):       ~24GB GPU memory   (1× RTX 4090)      💰
-                                         ^^^^^^^^^
-                                     A consumer GPU!
+Standard Fine-tuning:              LoRA Fine-tuning:
+┌──────────────────┐               ┌──────────────────┐   ┌────┐   ┌──────────────────┐
+│  W (4096×4096)   │               │  W (4096×4096)   │ + │ A  │ × │  B (16×4096)     │
+│ ████████████████ │  ← update all │ ░░░░░░░░░░░░░░░░ │   │4096│   │ ████████████████ │
+│ ████████████████ │  16.7M params │ ░░░░░░░░░░░░░░░░ │   │× 16│   │                  │
+│ ████████████████ │               │ ░░ FROZEN ░░░░░░ │   └────┘   └──────────────────┘
+└──────────────────┘               └──────────────────┘   train only the ████ parts
+```
+
+**The `r` (rank) parameter:**
+```
+r = inner dimension of LoRA matrices
+
+r = 8:   → 65K additional params   (simple tasks — tone, format)
+r = 16:  → 131K additional params  (most tasks — start here)
+r = 64:  → 524K additional params  (complex tasks — new capabilities)
+r = 256: → 2M additional params    (diminishing returns beyond this)
+
+Higher r = more capacity = better quality = slower training
+Start with r=16. Increase only if quality is insufficient.
+```
+
+**Common misconception:** Higher rank always helps. For simple style changes (different output format, different tone), r=8 is often identical to r=64 and trains 8× faster.
+
+---
+
+### 4. QLoRA (Quantized LoRA)
+
+**Plain English:** QLoRA = LoRA + compressed base model. The frozen base model is quantized to 4-bit (from 16-bit), making it 4× smaller. The LoRA adapters stay in full precision. Result: fine-tune a 70B model on a single consumer GPU.
+
+**Analogy:** A high-quality JPEG instead of a RAW photo. The image looks almost identical, but the file is 4× smaller. You edit the JPEG with full-resolution brushes (LoRA in FP16) — the compressed base is the canvas, your edits are precise.
+
+```
+Memory for Llama 3 70B:
+
+Full fine-tuning:  ~600 GB  (8× A100 80GB)   — enterprise only
+LoRA (FP16):       ~160 GB  (2× A100 80GB)   — team GPU server
+QLoRA (4-bit):     ~24 GB   (1× RTX 4090)    ← consumer GPU!
+
+Cost comparison (renting GPUs for 4 hours):
+Full FT:  8× A100 = ~$80/hour → $320
+QLoRA:    1× RTX 4090 = ~$0.50/hour → $2
 ```
 
 ```javascript
 // Frontend analogy:
 
-// Full model in FP16 = uncompressed PNG image (huge but perfect quality)
-// Quantized model = WebP image (much smaller, nearly identical quality)
+// Full fine-tuning = storing 4K PNG for every image
+// QLoRA base model = storing WebP (4× smaller, nearly same quality)
+// LoRA adapters = your edits in full resolution on top
 
-// You can barely tell the difference visually (in model quality),
-// but the file size (memory usage) is 4× smaller.
-
-// QLoRA = editing a compressed image with a high-quality overlay
-// Base: compressed (4-bit), Edits: full quality (FP16 LoRA)
+// The compression is nearly lossless for inference purposes.
+// You can barely tell the quality difference, but the size difference is massive.
 ```
 
-## Practical Fine-tuning with Python
+**Common misconception:** Quantization significantly degrades model quality. Research shows 4-bit QLoRA models perform within 1–2% of their full-precision equivalents on most benchmarks. For practical tasks, the quality trade-off is negligible.
 
-### Step 1: Prepare Your Data
+---
 
-Fine-tuning data is a set of (input, output) pairs:
+## How Fine-tuning Works (Step-by-Step)
+
+```
+Step 1: Prepare training data
+        (instruction, ideal response) pairs in JSONL format
+        ↓
+Step 2: Load pre-trained base model
+        (quantize to 4-bit for QLoRA)
+        ↓
+Step 3: Inject LoRA matrices
+        (A and B matrices added to attention layers)
+        ↓
+Step 4: Training loop (frozen base + trainable LoRA)
+        → Forward pass: input × (W + B·A) → output
+        → Compute loss: how different from ideal response?
+        → Backward pass: only LoRA gradients computed
+        → Update: only A and B matrices change
+        ↓
+Step 5: Save LoRA adapter (small file — 10–100 MB)
+        ↓
+Step 6: Deploy: base model + adapter = your custom model
+```
+
+```
+Training data quality determines everything:
+                                    
+  100 excellent examples  ──────────────►  Great results
+  10,000 mediocre examples ─────────────►  Mediocre results
+  
+  Quality > Quantity. Always.
+```
+
+---
+
+## Code in Practice
+
+### Preparing Training Data
 
 ```python
-# training_data.jsonl — one example per line
+# training_data.jsonl — one JSON object per line
 {"messages": [
-  {"role": "system", "content": "You are a helpful customer support agent for TechCorp."},
+  {"role": "system", "content": "You are a customer support agent for TechCorp."},
   {"role": "user", "content": "My laptop won't turn on"},
-  {"role": "assistant", "content": "I'm sorry to hear that! Let's troubleshoot. First, is the charging LED lit when you plug in the power adapter? If not, try a different outlet. If the LED is on but the laptop won't start, try holding the power button for 15 seconds to force reset."}
+  {"role": "assistant", "content": "I'm sorry to hear that! Let's troubleshoot step by step. First, is the charging LED lit when you plug in the power adapter? If yes, try holding the power button for 15 seconds to force reset. If the LED is off, try a different outlet and charging cable."}
 ]}
 
 {"messages": [
-  {"role": "system", "content": "You are a helpful customer support agent for TechCorp."},
+  {"role": "system", "content": "You are a customer support agent for TechCorp."},
   {"role": "user", "content": "How do I return a product?"},
-  {"role": "assistant", "content": "You can return any product within 30 days of purchase. Go to techcorp.com/returns, enter your order number, and we'll email you a prepaid shipping label. Refunds process within 5-7 business days."}
+  {"role": "assistant", "content": "You can return any product within 30 days of purchase. Visit techcorp.com/returns, enter your order number, and we'll email a prepaid shipping label. Refunds process in 5–7 business days."}
 ]}
 ```
 
-### Data Quality Guidelines
-
+**Data quality checklist:**
 ```
-Quality > Quantity. 100 excellent examples beat 10,000 mediocre ones.
+✅ Diverse examples — cover different scenarios, not just easy cases
+✅ Consistent response style — same tone and format throughout
+✅ Correct information — the model learns errors too!
+✅ Natural conversation flow — sounds human, not templated
+✅ Edge cases included — what to do when things go wrong
+✅ 100–500 high-quality examples minimum
+✅ 1,000–5,000 is the sweet spot
 
-✅ Good training data:
-  - Diverse examples covering different scenarios
-  - Consistent style/format in responses
-  - Correct, factual information
-  - Natural conversation flow
-  - Edge cases included
-
-❌ Bad training data:
-  - Copy-pasted or templated responses
-  - Inconsistent formatting
-  - Factual errors (the model will learn those too!)
-  - Only simple/happy-path examples
-  - Too short or too long responses
-
-Minimum: ~100-500 high-quality examples for noticeable effect
-Sweet spot: 1,000-5,000 examples
-Diminishing returns: >10,000 examples
+❌ Templated/copy-paste responses — model learns repetition
+❌ Factual errors — it learns those too
+❌ Only happy path — no edge case handling
+❌ Fewer than 50 examples — too few to see effect
 ```
 
-### Step 2: Fine-tune with Hugging Face + PEFT
+### Fine-tuning with Python (QLoRA)
 
 ```python
 from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments
 from peft import LoraConfig, get_peft_model
 from trl import SFTTrainer
+import torch
 
-# 1. Load base model
+# 1. Load base model (in 4-bit for QLoRA)
 model_name = "meta-llama/Llama-3-8B-Instruct"
 model = AutoModelForCausalLM.from_pretrained(
     model_name,
-    load_in_4bit=True,          # ← QLoRA: load in 4-bit
-    device_map="auto",
+    load_in_4bit=True,       # ← QLoRA quantization
+    device_map="auto",        # auto-detect GPU
+    torch_dtype=torch.float16,
 )
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 
 # 2. Configure LoRA
 lora_config = LoraConfig(
-    r=16,                        # Rank — start with 16
-    lora_alpha=32,               # Scaling factor (usually 2×r)
-    target_modules=["q_proj", "v_proj", "k_proj", "o_proj"],  # Which layers to adapt
-    lora_dropout=0.05,           # Regularization
-    bias="none",
+    r=16,                     # rank — start here
+    lora_alpha=32,            # scaling (usually 2 × r)
+    target_modules=["q_proj", "v_proj", "k_proj", "o_proj"],  # attention layers
+    lora_dropout=0.05,        # regularization
     task_type="CAUSAL_LM",
 )
 
-# 3. Apply LoRA to model
+# 3. Apply LoRA
 model = get_peft_model(model, lora_config)
 model.print_trainable_parameters()
-# Output: "trainable params: 6,553,600 || all params: 8,030,261,248 || trainable%: 0.0816"
-# Only 0.08% of parameters are being trained!
+# → "trainable params: 6,553,600 || all params: 8,030,261,248 || trainable%: 0.0816"
+# Only 0.08% of parameters train!
 
-# 4. Training configuration
+# 4. Training config
 training_args = TrainingArguments(
     output_dir="./my-fine-tuned-model",
-    num_train_epochs=3,           # 3 passes through the data
+    num_train_epochs=3,
     per_device_train_batch_size=4,
-    learning_rate=2e-4,           # Standard for LoRA
+    learning_rate=2e-4,          # standard for LoRA
     warmup_ratio=0.03,
+    fp16=True,
     logging_steps=10,
     save_strategy="epoch",
-    fp16=True,                    # Mixed precision training
 )
 
-# 5. Train!
+# 5. Train
 trainer = SFTTrainer(
     model=model,
     args=training_args,
-    train_dataset=dataset,        # Your prepared dataset
+    train_dataset=dataset,
     tokenizer=tokenizer,
     max_seq_length=2048,
 )
-
 trainer.train()
 
-# 6. Save the LoRA adapter (small file!)
+# 6. Save only the LoRA adapter — typically 10–100 MB
 model.save_pretrained("./my-lora-adapter")
-# This saves only the LoRA weights — typically 10-100MB
-# Not the full model (which is 16GB+)
+# The base model (16GB+) is unchanged and not saved again
 ```
 
-### Step 3: Use Your Fine-tuned Model
+### Using Your Fine-tuned Model
 
 ```python
 from peft import PeftModel
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-# Load base model + LoRA adapter
-base_model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3-8B-Instruct")
-model = PeftModel.from_pretrained(base_model, "./my-lora-adapter")
+# Load base + adapter
+base = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3-8B-Instruct")
+model = PeftModel.from_pretrained(base, "./my-lora-adapter")
 tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3-8B-Instruct")
 
-# Use it like any other model
+# Use like any model — adapter is applied automatically
 inputs = tokenizer("How do I return a product?", return_tensors="pt")
 outputs = model.generate(**inputs, max_new_tokens=200)
 print(tokenizer.decode(outputs[0]))
-# Response now follows your fine-tuned style!
+# Responds in your fine-tuned style!
 ```
 
-## Fine-tuning via APIs (No GPUs Needed)
-
-If you don't want to manage GPUs, you can fine-tune through provider APIs:
-
-### OpenAI Fine-tuning
+### Fine-tuning via API (No GPU needed)
 
 ```python
 from openai import OpenAI
 client = OpenAI()
 
-# 1. Upload training data
+# 1. Upload training file
 file = client.files.create(
     file=open("training_data.jsonl", "rb"),
     purpose="fine-tune"
 )
 
-# 2. Start fine-tuning job
+# 2. Start job
 job = client.fine_tuning.jobs.create(
     training_file=file.id,
-    model="gpt-4o-mini-2024-07-18",  # Base model to fine-tune
-    hyperparameters={
-        "n_epochs": 3,
-    }
+    model="gpt-4o-mini-2024-07-18",
+    hyperparameters={"n_epochs": 3}
 )
 
-# 3. Use your fine-tuned model
+# 3. Use the fine-tuned model (same API, different model ID)
 response = client.chat.completions.create(
-    model="ft:gpt-4o-mini-2024-07-18:my-org::abc123",  # Your fine-tuned model ID
+    model="ft:gpt-4o-mini-2024-07-18:my-org::abc123",  # your fine-tuned model ID
     messages=[{"role": "user", "content": "How do I return a product?"}]
 )
 ```
 
+---
+
 ## Evaluating Fine-tuned Models
 
-```python
-# Always compare: base model vs fine-tuned model on the same test set
+Always compare base model vs. fine-tuned model on the same held-out test set.
 
+```python
 test_prompts = [
     "How do I return a product?",
     "My laptop screen is cracked",
-    "Can I get a discount?",
-    # ... 50-100 test cases
+    "Can I get a student discount?",
+    # 50–100 test cases you didn't train on
 ]
 
-# Evaluate both models
+results = []
 for prompt in test_prompts:
     base_response = base_model.generate(prompt)
-    finetuned_response = finetuned_model.generate(prompt)
+    ft_response = finetuned_model.generate(prompt)
     
-    # Manual evaluation (gold standard)
-    # Or use an LLM-as-judge:
-    judge_prompt = f"""
-    Rate which response is better for a TechCorp customer support agent.
+    # LLM-as-judge (faster than human eval at scale)
+    score = judge_llm(f"""
+    Rate which response better fits our customer support style:
     
-    User query: {prompt}
-    Response A: {base_response}
-    Response B: {finetuned_response}
+    Query: {prompt}
+    Response A (base): {base_response}
+    Response B (fine-tuned): {ft_response}
     
-    Rate each response 1-5 on: helpfulness, accuracy, brand voice.
-    """
-    evaluation = judge_llm.generate(judge_prompt)
+    Score each 1–5 on: accuracy, brand voice, format compliance.
+    """)
+    results.append(score)
 ```
 
-### Key Metrics
-
+**Key metrics to track:**
 ```
-1. Task-specific accuracy:  Does it do what you trained it to do?
-2. Format compliance:       Does it follow the expected format?
-3. Brand voice consistency: Does it sound right?
-4. Hallucination rate:      Does it make stuff up more or less?
-5. Regression testing:      Is it still good at general tasks?
-
-Common pitfall: "catastrophic forgetting"
-  → Model becomes great at your specific task
-  → But loses general abilities it had before
-  → Solution: mix in some general training data (5-10%)
+1. Task accuracy      — does it do what you trained it to do?
+2. Format compliance  — does it follow the expected format?
+3. Brand voice        — does it sound like your company?
+4. Hallucination rate — is it making things up more than before?
+5. General benchmark  — hasn't it broken things it used to do well?
 ```
+
+**Catastrophic forgetting** — the main risk:
+```
+Symptom: Model is great at your specific task but lost general abilities.
+Example: Fine-tuned on customer support, now can't write code.
+
+Fix: Mix 5–10% general instruction data into your training set.
+     This preserves general capabilities while learning your specific task.
+```
+
+---
 
 ## LoRA Hyperparameter Guide
 
 ```
-Parameter        What It Does                   Start With
-─────────────────────────────────────────────────────────────
-r (rank)         Capacity of adaptation          16
-lora_alpha       Scaling factor                  32 (2 × r)
-lora_dropout     Regularization                  0.05
-target_modules   Which layers to adapt           q_proj, v_proj
-learning_rate    Step size for updates            2e-4
-epochs           Passes through data              3
-batch_size       Examples per step                4-8
-
-When to increase r:
-  - Complex task (e.g., learning a new language) → r=32 or r=64
-  - Simple task (e.g., changing tone) → r=8 is enough
-
-When to increase epochs:
-  - Small dataset (<500 examples) → 5-10 epochs
-  - Large dataset (>5000 examples) → 1-3 epochs
+Parameter       What It Does                    Start With    Adjust When
+──────────────────────────────────────────────────────────────────────────
+r (rank)        LoRA matrix size (capacity)     16            Complex task → 32–64
+lora_alpha      Scaling factor                  32 (2 × r)    Usually leave at 2 × r
+lora_dropout    Regularization (overfitting)    0.05          Overfitting → 0.1
+learning_rate   Step size for updates            2e-4          Unstable training → 1e-4
+num_epochs      Full passes through data         3             Small dataset → 5–10
+batch_size      Examples per gradient step       4–8           OOM → reduce; slow → increase
 
 Signs of overfitting:
-  - Training loss keeps dropping but validation loss goes up
-  - Model starts memorizing training examples word-for-word
-  - Fix: reduce epochs, increase dropout, add more diverse data
+  - Training loss keeps falling ✅ but validation loss goes up ❌
+  - Model memorizes training examples word-for-word
+  Fix: reduce epochs, increase dropout, add diverse data
+
+Signs of underfitting:
+  - Both training and validation loss plateau high
+  Fix: increase r, more epochs, more training data
 ```
 
-## Summary Comparison
+---
+
+## Comparison: All the Options
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│  Method          │ Cost     │ Time    │ GPU Needed │ Quality     │
+│ Method         │ Cost     │ Time    │ GPU Needed │ Quality       │
 ├──────────────────────────────────────────────────────────────────┤
-│  Prompt Eng.     │ Free     │ Minutes │ None       │ Good        │
-│  RAG             │ $        │ Hours   │ None       │ Great       │
-│  API Fine-tune   │ $$       │ Hours   │ None       │ Great       │
-│  QLoRA (local)   │ $$       │ Hours   │ 1× 24GB   │ Great       │
-│  LoRA (local)    │ $$$      │ Hours   │ 1-2× 80GB │ Excellent   │
-│  Full Fine-tune  │ $$$$     │ Days    │ 4-8× 80GB │ Excellent   │
-│  Pre-train       │ $$$$$$$  │ Months  │ Thousands  │ N/A         │
+│ Prompt Eng.    │ Free     │ Minutes │ None       │ Good          │
+│ RAG            │ $        │ Hours   │ None       │ Great (facts) │
+│ API Fine-tune  │ $$       │ Hours   │ None       │ Great         │
+│ QLoRA          │ $$       │ Hours   │ 1× 24 GB   │ Great         │
+│ LoRA (FP16)    │ $$$      │ Hours   │ 1–2× 80 GB │ Excellent     │
+│ Full Fine-tune │ $$$$     │ Days    │ 4–8× 80 GB │ Excellent     │
+│ Pre-training   │ $$$$$$$  │ Months  │ Thousands  │ N/A           │
 └──────────────────────────────────────────────────────────────────┘
 
-Start from the top. Move down only when the simpler method isn't enough.
+Always start from the top. Move down only when simpler methods fail.
 ```
 
-## Key Takeaways
+---
 
-| Concept | What to Remember |
-|---------|-----------------|
-| Fine-tuning | Adapt a pre-trained model to your specific task |
-| LoRA | Train tiny adapter matrices, freeze the rest (0.1% params) |
-| QLoRA | LoRA + 4-bit quantization = fine-tune 70B on one GPU |
-| PEFT | Family of efficient fine-tuning methods (LoRA is most popular) |
-| Data quality | 100 great examples > 10,000 mediocre ones |
-| When to use | Style/behavior changes, not factual knowledge (use RAG for that) |
-| Evaluation | Always compare base vs fine-tuned on held-out test set |
+## Gotchas & Pitfalls
 
-## What's Next?
+```
+❌ Fine-tuning for factual knowledge → ✅ Use RAG for facts
+   Fine-tuning teaches behavior, not facts. The model will still hallucinate.
 
-You now have the complete LLM toolkit:
-- **Fundamentals** — how LLMs work
-- **Prompt Engineering** — how to talk to them
-- **RAG** — how to give them knowledge
-- **APIs & SDKs** — how to build apps with them
-- **Agents** — how to let them take actions
-- **Fine-tuning** — how to customize them
+❌ Training on too little data → ✅ Minimum ~100 high-quality examples
+   Fewer than 50 examples rarely produces noticeable improvement.
 
-Next phase: [Phase 6: MLOps & Production](../README.md) — taking everything to production!
+❌ Training on inconsistent data → ✅ Audit quality before training
+   If your training responses vary in tone/format, the model learns chaos.
+
+❌ Skipping catastrophic forgetting check → ✅ Always run general benchmarks
+   A support bot that can't handle common questions is worse than the base model.
+
+❌ Not comparing base vs. fine-tuned → ✅ Always A/B test on a held-out test set
+   "The fine-tuned model feels better" is not evaluation. Measure it.
+
+❌ Setting r too high → ✅ Start with r=16, increase only if needed
+   High rank = more parameters = overfitting risk on small datasets.
+
+❌ Fine-tuning when prompting would work → ✅ Exhaust prompting first
+   Fine-tuning takes hours and $. A 30-minute prompt iteration might solve it.
+```
+
+---
+
+## When to Use / When NOT to Use Fine-tuning
+
+**Use fine-tuning when:**
+- You need the model to consistently output a specific complex format
+- Domain-specific jargon is being misinterpreted by the base model
+- You need a specific writing style maintained across thousands of generations
+- Prompting alone can't achieve reliable results after multiple iterations
+- You need to run a smaller model that matches a larger one's task performance
+
+**Don't use fine-tuning when:**
+- You need the model to know facts or access recent information (→ RAG)
+- Prompt engineering hasn't been fully exhausted (→ try prompts first)
+- You have fewer than ~100 training examples (→ use few-shot prompting)
+- The base model already does the task adequately (→ don't fix what isn't broken)
+- You need real-time data updates (→ RAG, updated in seconds vs. re-training in hours)
+
+---
+
+## Related Concepts (The Map)
+
+| If you know... | Fine-tuning concept is like... |
+|----------------|-------------------------------|
+| CSS theming / overrides | LoRA = a small override stylesheet on top of base styles |
+| React forking vs. wrapping | Full FT = fork; LoRA = HOC that wraps and extends |
+| Browser extensions | LoRA adapters = browser extension that modifies behavior without touching source |
+| Image quantization (JPEG) | QLoRA base model = compressed image, nearly same quality |
+| Plugin architecture | PEFT adapters = plugins — swap without changing the base |
+
+**Connected topics:**
+- **LLM Fundamentals** → pre-training vs. instruction tuning vs. RLHF (fine-tuning continues this chain)
+- **RAG** → the alternative when you need knowledge, not behavior change
+- **Prompt Engineering** → exhaust this before fine-tuning
+- **LLM APIs & SDKs** → OpenAI/Anthropic offer fine-tuning via API (no GPU needed)
+
+---
+
+## Cheat Sheet
+
+| Term | One-line definition |
+|------|---------------------|
+| Fine-tuning | Continuing training a pre-trained model on your specific data |
+| PEFT | Family of methods that update only a fraction of parameters |
+| LoRA | Adds two small trainable matrices alongside frozen weights (~0.1% params) |
+| QLoRA | LoRA + 4-bit quantized base model = fine-tune 70B on 24GB GPU |
+| r (rank) | LoRA matrix capacity — start at 16, increase for complex tasks |
+| lora_alpha | Scaling factor for LoRA updates — usually 2× r |
+| Catastrophic forgetting | Model loses general ability after fine-tuning on narrow data |
+| Adapter | LoRA weight file saved separately from base model (10–100 MB) |
+
+**LoRA quick-start values:**
+```python
+LoraConfig(
+    r=16,
+    lora_alpha=32,
+    target_modules=["q_proj", "v_proj"],
+    lora_dropout=0.05,
+)
+TrainingArguments(
+    num_train_epochs=3,
+    learning_rate=2e-4,
+    per_device_train_batch_size=4,
+)
+```
+
+**Remember these 3 things:**
+1. Fine-tune for behavior/style. Use RAG for facts.
+2. Quality of training data > quantity of training data
+3. Always compare base vs. fine-tuned on a held-out test set
+
+---
+
+## Self-Check Questions
+
+1. **A teammate says "let's fine-tune the model on our product documentation so it knows our products." What do you say?**
+
+<details>
+<summary>Answer</summary>
+Redirect to RAG instead. Fine-tuning teaches the model how to respond in style, but it will still hallucinate product facts even after training. Worse, facts in training data become stale when products change — you'd need to retrain. RAG gives you up-to-date, accurate answers with source citations, and you can update the knowledge base in seconds without any GPU time.
+</details>
+
+2. **What happens if you train LoRA with r=256 on 50 examples?**
+
+<details>
+<summary>Answer</summary>
+The model will overfit badly. High rank (r=256) gives the LoRA matrices enormous capacity to memorize. With only 50 examples, it will memorize the training set exactly instead of generalizing. Signs: training loss hits near-zero, but the model on new inputs just copies training responses word-for-word. Fix: reduce rank to r=8–16, add more training data, increase dropout.
+</details>
+
+3. **You fine-tuned a model for customer support. Now users report it can't write code anymore. What happened and how do you fix it?**
+
+<details>
+<summary>Answer</summary>
+Catastrophic forgetting: fine-tuning on a narrow domain caused the model to lose general capabilities. Fix: retrain with a mix of your domain data (90%) and general instruction data (10%). This preserves general capabilities while learning your specific task. Tools like Alpaca dataset or the base model's original instruction data work well for the general portion.
+</details>
+
+4. **How does QLoRA enable fine-tuning a 70B model on a single GPU that only has 24GB RAM?**
+
+<details>
+<summary>Answer</summary>
+Two key tricks: (1) Quantize the frozen base model to 4-bit (from 16-bit) — a 70B model in FP16 needs 140GB; in 4-bit it needs ~35GB. (2) Use a special 4-bit format (NF4) with double quantization that gets it to ~24GB. The LoRA adapters stay in full precision (FP16) but are tiny (~131K params vs 70B base). Gradients only flow through the LoRA layers, so you never need to store gradients for the full 70B params.
+</details>
+
+5. **Your fine-tuned model performs worse than the base model on your task. What do you debug first?**
+
+<details>
+<summary>Answer</summary>
+In order: (1) Data quality — review 20 random training examples. Are they consistent? Correct? Representative? Bad data is the #1 cause. (2) Overfitting — check if training loss is much lower than validation loss. If so, reduce epochs or increase dropout. (3) Underfitting — if both losses plateau high, try higher r or more data. (4) Evaluation method — are you comparing fairly? Same temperature, same system prompt, same test prompts? Bad comparison methodology is surprisingly common.
+</details>
+
+---
+
+## Go Deeper
+
+1. **[LoRA: Low-Rank Adaptation of Large Language Models](https://arxiv.org/abs/2106.09685)** — The original LoRA paper by Hu et al. Read sections 1–3 and the results table. Understanding the math (even at a high level) makes you a much better fine-tuner. (30 min)
+
+2. **[QLoRA: Efficient Finetuning of Quantized LLMs](https://arxiv.org/abs/2305.14314)** — The paper that made 70B fine-tuning accessible. The introduction and Table 1 tell you everything you need to know practically. (20 min)
+
+3. **[Hugging Face PEFT Library](https://huggingface.co/docs/peft/index)** — The go-to library for all PEFT methods. The docs have complete working examples for LoRA, QLoRA, and adapter-based fine-tuning. (2 hours)
+
+4. **[Axolotl](https://github.com/OpenAccess-AI-Collective/axolotl)** — Production-ready fine-tuning framework that handles all the boilerplate. If you want to fine-tune without writing training loops from scratch, start here. (1 hour setup)
+
+5. **[LLM Fine-tuning Guide by Mistral](https://docs.mistral.ai/guides/finetuning/)** — Excellent practical guide with dataset format examples, hyperparameter recommendations, and evaluation strategies. Provider-agnostic advice despite the source. (1 hour)
+
+---
+
+**What's next?** You now have the complete LLM toolkit:
+- [LLM Fundamentals](llm-fundamentals.md) — how LLMs work
+- [Prompt Engineering](prompt-engineering.md) — how to talk to them  
+- [RAG](rag.md) — how to give them knowledge
+- [APIs & SDKs](llm-apis-sdks.md) — how to build apps with them
+- [Agents](agents-tool-use.md) — how to let them take actions
+- **Fine-tuning** — how to customize them (you're here)
+
+Next phase: MLOps & Production — taking everything to production!

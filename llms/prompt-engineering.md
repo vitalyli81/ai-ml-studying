@@ -1,44 +1,51 @@
 # Prompt Engineering
 
-## What Is It?
+## TL;DR
 
-Prompt engineering is the art and science of **writing instructions that get LLMs to do exactly what you want**. It's the most important skill for an AI engineer — the difference between a useless response and a perfect one is often just how you asked.
+Prompt engineering is the skill of writing instructions that reliably get LLMs to do what you want. The model doesn't "understand" your intent — it pattern-matches on your words. Clarity, structure, and examples in your prompt directly translate to quality in the output. It's not magic; it's precise communication. The difference between a bad AI feature and a great one is usually the prompt.
 
-```
-Bad prompt:   "Write code"
-Good prompt:  "Write a TypeScript function that validates an email address.
-               Return true/false. Include edge cases for subdomains and plus addressing.
-               Add JSDoc comments."
+> 💡 **Key Insight:** The prompt is the product. Same model, same API call — but the right prompt turns a useless response into a production-ready feature.
 
-Same model, wildly different results. The prompt is the product.
-```
+---
 
-## Frontend Analogy
+## The Mental Model
 
-```javascript
-// Prompt engineering is like writing a really detailed Jira ticket
+**Think of prompting like briefing a brilliant contractor who just started today.**
 
-// Bad Jira ticket:
-//   "Fix the button"
-//   → Developer: which button? fix what? on which page?
+They're extremely capable but know nothing about your specific project, your standards, or what "done" looks like to you. You can't assume — you have to specify. The more context you give, the better the result. Vague brief → vague deliverable. Precise brief → precise deliverable.
 
-// Good Jira ticket:
-//   "The submit button on /checkout is disabled after first click even when
-//    form validation passes. Expected: re-enabled after failed submission.
-//    Steps to reproduce: 1. Fill form  2. Submit with bad card  3. Fix card
-//    4. Button stays disabled. See screenshot."
-//   → Developer: got it, fixing now.
+| Real world | Technical concept |
+|------------|------------------|
+| Contractor's role/title | System prompt (sets persona and rules) |
+| Project background | Context (background info, relevant docs) |
+| Deliverable requirements | Task (what you want) |
+| Format of the report | Output format specification |
+| Reference examples | Few-shot examples |
+| "If X happens, do Y" | Edge case handling |
 
-// Same with LLMs — clarity in, quality out.
-```
+---
 
-## The Anatomy of a Prompt
+## Why It Exists (Problem → Solution)
 
-Every prompt to an LLM has these building blocks:
+**The problem:** LLMs are trained on everything — code tutorials, recipes, fiction, legal documents, forum arguments. Without guidance, they respond in whatever style seems statistically appropriate for your words. That might be a lecture when you wanted bullet points, or verbose when you wanted concise.
+
+**What came before:** Early NLP systems required exact keyword matching. LLMs are powerful enough to understand natural language — which is a gift, but also means they'll interpret ambiguity in unexpected ways.
+
+**What changed:** The same base model can be a customer support agent, a code reviewer, a data extractor, or a creative writer — just by changing the prompt. Prompt engineering is how you unlock that flexibility.
+
+---
+
+## Core Concepts
+
+### 1. The Anatomy of a Prompt
+
+**Plain English:** Every effective prompt has 5 building blocks. Most bad prompts are missing one.
+
+**Analogy:** Like a recipe. Miss the cooking time → burnt food. Miss the portion size → feeds wrong number of people. Every element matters.
 
 ```
 ┌─────────────────────────────────────────────┐
-│  SYSTEM PROMPT (role, rules, constraints)   │
+│  SYSTEM (role, rules, constraints)          │
 ├─────────────────────────────────────────────┤
 │  CONTEXT (background info, documents)       │
 ├─────────────────────────────────────────────┤
@@ -50,345 +57,498 @@ Every prompt to an LLM has these building blocks:
 └─────────────────────────────────────────────┘
 ```
 
-### Example with All Parts
-
+**Full example:**
 ```
-SYSTEM: You are a senior TypeScript developer who writes clean, testable code.
+SYSTEM:  You are a senior TypeScript developer who writes clean, testable code.
 
 CONTEXT: We're building a Next.js e-commerce app. The cart uses Zustand for state.
 
-TASK: Write a function that calculates the total price including:
-- Quantity discounts (10%+ off for 5+ items)
-- Tax by state
-- Free shipping over $50
+TASK:    Write a function that calculates the total price including:
+         - Quantity discounts (10% off for 5+ items)
+         - Tax by state
+         - Free shipping over $50
 
-FORMAT: Return a TypeScript function with proper types. Include unit tests.
+FORMAT:  TypeScript function with proper types. Include unit tests.
 
 EXAMPLE:
   Input: [{ item: "Widget", price: 10, qty: 6 }], state: "CA"
   Output: { subtotal: 60, discount: 6, tax: 4.86, shipping: 0, total: 58.86 }
 ```
 
-## Core Techniques
+**Common misconception:** People think a system prompt is just decorative role-play. Actually, the system prompt is the most powerful part of your prompt — it sets hard constraints the model follows throughout the conversation.
 
-### 1. Zero-Shot Prompting
+---
 
-Just ask directly. No examples. Works for simple, well-defined tasks.
+### 2. Zero-Shot vs Few-Shot Prompting
 
-```
-Prompt: "Classify this review as positive, negative, or neutral:
-         'The food was okay but the service was terrible.' "
+**Plain English:** Zero-shot = just ask. Few-shot = show examples before asking.
 
-LLM:    "Negative"
-```
-
-**When to use:** Simple tasks where the LLM clearly understands what you want.
-
-### 2. Few-Shot Prompting
-
-Provide examples of the input→output pattern you want. The LLM learns the pattern from your examples.
+**Analogy:** Zero-shot is "just guess what I want." Few-shot is showing someone 3 examples of the output you expect, then asking them to do the next one. Examples are worth a thousand words of explanation.
 
 ```
-Prompt:
-  "Classify these reviews:
+# Zero-shot:
+"Classify this review as positive, negative, or neutral:
+ 'The food was okay but the service was terrible.'"
+→ "Negative"
 
-   Review: 'Amazing product, works perfectly!' → Positive
-   Review: 'It's fine, nothing special.' → Neutral
-   Review: 'Broke after 2 days, waste of money.' → Negative
+# Few-shot:
+"Classify these reviews:
+ 'Amazing product!' → Positive
+ 'It's fine, nothing special.' → Neutral
+ 'Broke after 2 days.' → Negative
 
-   Review: 'Good value but shipping was slow.' → "
-
-LLM:    "Neutral" (or "Mixed" — it learned the pattern)
+ 'Good value but slow shipping.' → "
+→ "Neutral" (it learned your exact classification style)
 ```
-
-**When to use:** When the task has a specific format or the LLM gets it wrong with zero-shot.
 
 ```javascript
-// Frontend analogy: Few-shot is like writing test cases
+// Frontend analogy: Few-shot is like writing test cases first
 
-// Instead of explaining the function requirements in words,
+// Instead of explaining what classify() should do in words,
 // you show the LLM:
-//   expect(classify("Amazing!")).toBe("Positive")
-//   expect(classify("Meh")).toBe("Neutral")
-//   expect(classify("Terrible")).toBe("Negative")
+//   "Amazing!" → Positive
+//   "Meh"     → Neutral
+//   "Awful"   → Negative
+// Then ask it to classify the next one.
 
-// The LLM infers the function from the test cases
+// It infers the function behavior from the test cases — just like TDD.
 ```
+
+**Common misconception:** More examples = better. Not always. 2-3 clear, diverse examples often outperform 10 mediocre ones. Quality over quantity.
+
+---
 
 ### 3. Chain-of-Thought (CoT) Prompting
 
-Ask the LLM to **think step by step** before answering. This dramatically improves reasoning on complex problems.
+**Plain English:** Ask the LLM to show its work before giving the final answer. This dramatically reduces errors on reasoning tasks.
+
+**Analogy:** Like doing math in your head vs. on paper. Writing out each step prevents you from skipping something and making an error. The LLM's "scratch pad" is the tokens it generates before the final answer.
 
 ```
 WITHOUT CoT:
-  Prompt: "If a shirt costs $25 and is 20% off, and tax is 8%, what do I pay?"
-  LLM:    "$21.60"  ← might be right, might be wrong, who knows
+  "If a shirt costs $25 and is 20% off, with 8% tax, what do I pay?"
+  → "$21.60" (might be wrong, you have no idea why)
 
 WITH CoT:
-  Prompt: "If a shirt costs $25 and is 20% off, and tax is 8%, what do I pay?
-           Think step by step."
-  LLM:    "Step 1: Original price = $25
-           Step 2: Discount = 25 × 0.20 = $5
-           Step 3: After discount = 25 - 5 = $20
-           Step 4: Tax = 20 × 0.08 = $1.60
-           Step 5: Total = 20 + 1.60 = $21.60"
+  "...Think step by step."
+  → "Step 1: Original price = $25
+     Step 2: Discount = 25 × 0.20 = $5
+     Step 3: After discount = $20
+     Step 4: Tax = 20 × 0.08 = $1.60
+     Step 5: Total = $21.60"
 ```
-
-**Why it works:** Forcing the model to show its work prevents it from skipping steps and making errors. Each step becomes context for the next step.
 
 ```javascript
-// Frontend analogy: It's like debugging with console.log
+// Frontend analogy: CoT is like adding console.log to debug
 
-// Without CoT: the function returns wrong answer, you have no idea why
-// With CoT:    you console.log each intermediate value, and can spot where
-//              the logic goes wrong
+// Without CoT: function returns wrong answer, no idea why
+// With CoT:    each intermediate step is visible — you can spot the error
 
-// console.log("price:", price);          // Step 1
-// console.log("discount:", discount);     // Step 2
-// console.log("afterDiscount:", after);   // Step 3
-// console.log("tax:", tax);               // Step 4
-// console.log("total:", total);           // Step 5
+// console.log("price:", price);        // Step 1
+// console.log("discount:", discount);  // Step 2
+// console.log("total:", total);        // Step 3
 ```
+
+**When to use:** Multi-step math, logic puzzles, code reasoning, anything where intermediate steps matter. For simple factual lookups, CoT can actually hurt by "overthinking."
+
+**Common misconception:** Adding "think step by step" always helps. For simple tasks (sentiment classification, single-fact retrieval), it adds unnecessary tokens and can reduce accuracy.
+
+---
 
 ### 4. System Prompts (Role Prompting)
 
-Set the LLM's persona, rules, and constraints. This is the most powerful lever for consistent behavior.
+**Plain English:** The system prompt sets the AI's persona, rules, and behavior for the entire conversation. It's the most powerful lever you have.
+
+**Analogy:** Think of the system prompt as an employee handbook. It defines who the employee is, what they do, what they never do, and how they communicate.
 
 ```
 System: "You are a code reviewer for a TypeScript codebase.
          Rules:
-         - Focus on bugs, security issues, and performance
+         - Focus only on bugs and security issues
          - Ignore style/formatting (we have ESLint for that)
-         - Rate severity as: 🔴 critical, 🟡 warning, 🟢 suggestion
+         - Rate severity: 🔴 critical, 🟡 warning, 🟢 suggestion
          - Be concise — one line per issue
-         - If the code looks good, just say 'LGTM'"
+         - If code is clean, respond with exactly: LGTM"
 
 User: [pastes code]
 
-LLM: "🔴 Line 15: SQL injection — user input passed directly to query
-      🟡 Line 23: N+1 query — this runs inside a loop, use batch fetch
-      🟢 Line 31: Consider using Map instead of Object for dynamic keys"
+→ "🔴 Line 15: SQL injection — user input directly in query
+   🟡 Line 23: N+1 query — runs inside loop, use batch fetch
+   🟢 Line 31: Consider Map instead of Object for dynamic keys"
 ```
+
+**Common misconception:** You can override a system prompt by being persuasive in the user message. A well-crafted system prompt with explicit rules is actually very sticky — the model strongly respects it.
+
+---
 
 ### 5. Output Format Control
 
-Tell the LLM exactly what format you need. This is critical for building apps that parse LLM responses.
+**Plain English:** Tell the model exactly what format you need. This is critical when your app needs to parse the response programmatically.
+
+**Analogy:** If you're building a data pipeline, you need predictable output. A CSV with inconsistent columns would break your parser. Same with LLM responses — specify the format or expect chaos.
 
 ```
-Prompt: "Extract the following from this job posting and return as JSON:
+Prompt: "Extract from this job posting as JSON:
          - title (string)
          - company (string)
          - salary_min (number or null)
-         - salary_max (number or null)
          - remote (boolean)
-         - skills (string array)
+         - skills (string array)"
 
-         Job posting: [paste here]"
-
-LLM returns:
+Response:
 {
   "title": "Senior Frontend Engineer",
   "company": "Acme Inc",
   "salary_min": 150000,
-  "salary_max": 200000,
   "remote": true,
   "skills": ["React", "TypeScript", "GraphQL"]
 }
 ```
 
 ```javascript
-// This is huge for AI engineering — you can now do:
+// This unlocks AI engineering — you can do:
 const result = JSON.parse(llmResponse);
-// and use it directly in your app!
+renderJobCard(result);  // LLM output feeds directly into your UI
 
-// Pro tip: Anthropic and OpenAI both support "structured outputs"
-// which GUARANTEE valid JSON matching a schema — no parsing errors ever
+// Pro tip: Both Anthropic and OpenAI have "structured outputs" mode
+// that GUARANTEES valid JSON — no parse errors ever.
 ```
 
-## Advanced Techniques
+**Common misconception:** JSON in the prompt is enough. For production systems, use the API's structured output feature (tool use / response_format) to *guarantee* valid JSON, not just request it.
 
-### Prompt Chaining
+---
 
-Break complex tasks into a pipeline of simpler prompts, where each step feeds into the next.
+## How It Actually Works (Step-by-Step)
 
-```
-Complex task: "Analyze this codebase and suggest refactoring"
-
-Chain:
-  Step 1: "List all files in this codebase and their purpose" → file_list
-  Step 2: "Given these files, identify code duplication" → duplicates
-  Step 3: "Given these duplicates, suggest specific refactoring" → plan
-  Step 4: "Implement refactoring step 1 from this plan" → code
-
-Each step is simple and focused. The chain produces better results than
-one giant prompt asking for everything at once.
-```
-
-```javascript
-// Frontend analogy: It's like middleware in Express/Next.js
-
-// Instead of one massive handler:
-app.post('/process', (req, res) => { /* 500 lines of everything */ });
-
-// You chain focused middleware:
-app.post('/process', validate, enrich, transform, respond);
-
-// Same idea — each LLM call does one thing well
-```
-
-### Self-Consistency (Multiple Samples)
-
-Ask the same question multiple times and take the majority answer. Great for reasoning tasks.
-
-```javascript
-// Ask the LLM 5 times with temperature > 0
-const answers = await Promise.all([
-  askLLM(prompt), // "42"
-  askLLM(prompt), // "42"
-  askLLM(prompt), // "38"  ← outlier
-  askLLM(prompt), // "42"
-  askLLM(prompt), // "42"
-]);
-
-// Majority vote: "42" (4/5 times)
-// More confident than a single sample
-```
-
-### ReAct (Reason + Act)
-
-The model alternates between **thinking** and **acting** (calling tools). This is the foundation of AI agents.
+Let's trace a real production example: building a code review bot.
 
 ```
-User: "What's the weather in the city where the Eiffel Tower is?"
-
-LLM Thought: I need to know which city the Eiffel Tower is in. I know it's Paris.
-             Now I need the weather in Paris.
-LLM Action:  call weather_api("Paris, France")
-Observation: {"temp": 18, "condition": "partly cloudy"}
-LLM Thought: I have the weather data. I can now answer.
-LLM Answer:  "The weather in Paris (where the Eiffel Tower is) is 18°C
-              and partly cloudy."
+Step 1: Developer commits code and triggers CI
+        ↓
+Step 2: CI calls your API route with the diff
+        ↓
+Step 3: You build the prompt:
+        [System: code reviewer persona + JSON format requirement]
+        [Context: the code diff]
+        [Task: review this change]
+        ↓
+Step 4: Prompt goes to Anthropic API
+        → Model processes prompt (attention over all tokens)
+        → Generates next token based on probability distribution
+        → Repeats until it produces the full JSON response
+        ↓
+Step 5: You parse the JSON
+        ↓
+Step 6: Post comments to GitHub PR via API
+        ↓
+Step 7: Developer sees structured, consistent feedback
 ```
 
-We'll cover this in depth in [Agents & Tool Use](agents-tool-use.md).
-
-## Prompt Engineering Patterns for AI Engineers
-
-### The System Prompt Template
-
-This is a production-ready template for building AI features:
-
 ```
-You are [ROLE] that helps users [GOAL].
-
-## Rules
-- [Constraint 1]
-- [Constraint 2]
-- [Safety rule]
-
-## Input Format
-You will receive [description of input].
-
-## Output Format
-Respond with [exact format specification].
-[Include an example]
-
-## Examples
-Input: [example input]
-Output: [example output]
-
-Input: [edge case input]
-Output: [edge case output]
-
-## Edge Cases
-- If [situation], then [behavior]
-- If unsure, [fallback behavior]
+Prompt tokens:        ────────────────────────────────────────► model
+                      [System][Code diff][Task][Format spec]
+                                                               │
+                                                               ▼
+Response tokens:      ◄──────────────────────────────────── generates
+                      [{ "line": 15, "severity": "critical", ...}]
 ```
 
-### Common Mistakes to Avoid
+---
 
-```
-❌ Being vague:        "Make it better"
-✅ Being specific:     "Reduce the function to under 20 lines while keeping
-                        all edge cases. Use early returns instead of nesting."
+## Code in Practice
 
-❌ Asking for too much: "Build me an entire e-commerce platform"
-✅ Breaking it down:    "Write the cart total calculation function"
+### Basic: Zero-shot classification
 
-❌ No format spec:     "Summarize this article"
-✅ With format:        "Summarize this article in 3 bullet points,
-                        each under 15 words"
+```typescript
+import Anthropic from '@anthropic-ai/sdk';
+const anthropic = new Anthropic();
 
-❌ Ignoring edge cases: "Parse this date"
-✅ Handling edges:      "Parse this date. If ambiguous (01/02/03), assume
-                         MM/DD/YY. If invalid, return null with an error message."
-```
+async function classify(text: string): Promise<string> {
+  const response = await anthropic.messages.create({
+    model: 'claude-haiku-4-5-20251001',  // Cheapest — simple task
+    max_tokens: 10,
+    messages: [{
+      role: 'user',
+      content: `Classify as positive, negative, or neutral. Reply with one word only.
+               
+               Text: "${text}"`
+    }]
+  });
+  return response.content[0].text.trim();
+}
 
-### Prompt Debugging Checklist
-
-When the LLM gives bad output:
-
-```
-1. Is the task clear?          → Can a human understand what you want?
-2. Is there enough context?    → Does the LLM have the info it needs?
-3. Are examples provided?      → Show don't just tell
-4. Is the format specified?    → JSON? Markdown? Bullet points?
-5. Are edge cases handled?     → What if input is empty? Invalid?
-6. Is the prompt too long?     → Shorter, focused prompts often work better
-7. Is temperature appropriate? → Code/facts=0, creative=0.7+
+await classify("The food was great but the service was slow");
+// → "Neutral"
 ```
 
-## Real-World Example: Building a Code Review Bot
+### Practical: Structured extraction
 
+```typescript
+async function extractJobInfo(posting: string) {
+  const response = await anthropic.messages.create({
+    model: 'claude-sonnet-4-5-20241022',
+    max_tokens: 512,
+    system: 'Extract structured data from job postings. Return valid JSON only. No explanation.',
+    messages: [{
+      role: 'user',
+      content: `Extract from this job posting:
+               
+               ${posting}
+               
+               Return JSON with: title, company, salary_min (number or null),
+               salary_max (number or null), remote (boolean), skills (string[])`
+    }]
+  });
+
+  return JSON.parse(response.content[0].text);
+}
 ```
-System Prompt:
-"You are an automated code reviewer for a TypeScript/React codebase.
+
+### Production: Code review bot with system prompt + format guarantee
+
+```typescript
+const CODE_REVIEWER_SYSTEM = `You are an automated code reviewer for TypeScript/React.
 
 Rules:
 - Only flag real bugs and security issues, not style preferences
 - Max 5 comments per review
 - Each comment must reference a specific line number
-- Rate severity: critical (blocks merge), warning (should fix), info (nice to have)
-- If the code is clean, respond with exactly: {"comments": [], "summary": "LGTM"}
+- Severity: "critical" (blocks merge), "warning" (should fix), "info" (nice to have)
+- If code is clean: {"comments": [], "summary": "LGTM"}
 
-Output Format (JSON):
+Output format (JSON, nothing else):
 {
   "comments": [
     {
       "line": number,
       "severity": "critical" | "warning" | "info",
       "message": "string",
-      "suggestion": "string (optional fix)"
+      "suggestion": "string"
     }
   ],
-  "summary": "One-sentence overall assessment"
-}
+  "summary": "one sentence"
+}`;
 
-Example:
-Input: function divide(a, b) { return a / b; }
-Output: {
-  "comments": [{
-    "line": 1,
-    "severity": "critical",
-    "message": "Division by zero not handled",
-    "suggestion": "if (b === 0) throw new Error('Division by zero')"
-  }],
-  "summary": "One critical bug: missing zero-division check"
-}"
+async function reviewCode(diff: string) {
+  const response = await anthropic.messages.create({
+    model: 'claude-sonnet-4-5-20241022',
+    max_tokens: 1024,
+    system: CODE_REVIEWER_SYSTEM,
+    messages: [{ role: 'user', content: diff }]
+  });
+
+  return JSON.parse(response.content[0].text);
+}
 ```
 
-## Key Takeaways
+---
 
-| Technique | When to Use | Complexity |
-|-----------|-------------|------------|
-| Zero-shot | Simple, clear tasks | ⭐ |
-| Few-shot | Need specific format/pattern | ⭐⭐ |
-| Chain-of-thought | Reasoning, math, logic | ⭐⭐ |
-| System prompts | Any production use case | ⭐⭐ |
-| Prompt chaining | Complex multi-step tasks | ⭐⭐⭐ |
-| Self-consistency | High-stakes decisions | ⭐⭐⭐ |
-| ReAct | Tasks requiring external data | ⭐⭐⭐⭐ |
+## Advanced Techniques
 
-## What's Next?
+### Prompt Chaining
 
-Great prompts are powerful, but LLMs are limited to what they were trained on. What if you need them to answer questions about **your** data? That's [RAG (Retrieval-Augmented Generation)](rag.md).
+Break complex tasks into a pipeline where each step feeds the next.
+
+```
+Complex task: "Analyze this codebase and suggest refactoring"
+
+Chain:
+  Step 1: "List all files and their purpose" → file_list
+  Step 2: "Given these files, identify duplication" → duplicates
+  Step 3: "Given duplicates, suggest refactoring" → plan
+  Step 4: "Implement step 1 of the plan" → code
+
+Each step is simple. The chain produces better results than one giant prompt.
+```
+
+```javascript
+// Frontend analogy: middleware pipeline
+
+// Instead of one massive handler:
+app.post('/process', (req, res) => { /* 500 lines */ });
+
+// Chain focused steps:
+app.post('/process', validate, enrich, transform, respond);
+// Same idea — each LLM call does one thing well.
+```
+
+### Self-Consistency
+
+Ask the same question multiple times (temp > 0) and take the majority answer.
+
+```javascript
+const answers = await Promise.all([
+  askLLM(prompt), // "42"
+  askLLM(prompt), // "42"
+  askLLM(prompt), // "38" ← outlier
+  askLLM(prompt), // "42"
+  askLLM(prompt), // "42"
+]);
+// Majority vote: "42" — more reliable than single sample
+```
+
+Best for high-stakes reasoning where reliability matters more than cost.
+
+### ReAct (Reason + Act)
+
+The model alternates between thinking and taking actions. Foundation of AI agents.
+
+```
+User: "What's the weather where the Eiffel Tower is?"
+
+Thought: Eiffel Tower is in Paris. I need weather for Paris.
+Action:  call weather_api("Paris, France")
+Observe: {"temp": 18, "condition": "partly cloudy"}
+Thought: I have the data. I can answer.
+Answer:  "In Paris (where the Eiffel Tower is), it's 18°C and partly cloudy."
+```
+
+---
+
+## Gotchas & Pitfalls
+
+```
+❌ Vague task → ✅ Specific task
+   "Make it better" vs "Reduce to under 20 lines using early returns"
+
+❌ No format spec → ✅ Explicit format
+   "Summarize this" vs "Summarize in exactly 3 bullet points, ≤15 words each"
+
+❌ Asking for too much → ✅ Break it down
+   "Build an e-commerce platform" vs "Write the cart total calculation function"
+
+❌ No examples for custom format → ✅ Show one example
+   Describing the format in words vs showing "Input: X → Output: Y"
+
+❌ Ignoring edge cases → ✅ Handle edges explicitly
+   "Parse this date" vs "If ambiguous, assume MM/DD/YY. If invalid, return null."
+
+❌ CoT for simple tasks → ✅ Zero-shot for simple tasks
+   "Think step by step. What's the capital of France?" (wasteful)
+
+❌ Assuming the model knows your context → ✅ Provide relevant context
+   The model doesn't know your codebase, your standards, or what "good" means to you.
+```
+
+---
+
+## When to Use / When NOT to Use Each Technique
+
+| Technique | Use when | Don't use when |
+|-----------|----------|----------------|
+| Zero-shot | Simple, clear, common tasks | Output format needs to be exact |
+| Few-shot | Custom format, unusual pattern, model keeps getting it wrong | You need more than 5 examples (use fine-tuning instead) |
+| Chain-of-thought | Math, logic, multi-step reasoning | Simple factual retrieval (adds noise) |
+| System prompt | Any production use case | One-off exploratory queries in playground |
+| Prompt chaining | Complex tasks with multiple logical steps | Simple single-step tasks (over-engineering) |
+| Self-consistency | High-stakes decisions, math | Latency-sensitive or cost-sensitive features |
+| ReAct | Tasks requiring external data or actions | Pure text generation tasks |
+
+---
+
+## Related Concepts (The Map)
+
+| If you know... | Prompt engineering concept is like... |
+|----------------|--------------------------------------|
+| Function signatures | System prompt = function signature (sets contract) |
+| Unit tests | Few-shot examples = test cases that define expected behavior |
+| Middleware | Prompt chaining = pipeline of middleware functions |
+| API documentation | Output format spec = API response schema |
+| Debugging with logs | Chain-of-thought = console.log for LLM reasoning |
+
+**Connected topics:**
+- **LLM Fundamentals** → why tokens and temperature affect your prompts
+- **Agents & Tool Use** → ReAct is the foundation of agent reasoning
+- **RAG** → prompts that include retrieved context as part of the template
+- **Fine-tuning** → when prompting alone can't get reliable enough results
+
+---
+
+## Cheat Sheet
+
+| Technique | One-line summary | Complexity |
+|-----------|-----------------|------------|
+| Zero-shot | Just ask directly | ⭐ |
+| Few-shot | Show 2-3 examples of desired output | ⭐⭐ |
+| Chain-of-thought | Add "Think step by step" for reasoning tasks | ⭐⭐ |
+| System prompt | Define role, rules, format at the top | ⭐⭐ |
+| Prompt chaining | Break into pipeline of focused LLM calls | ⭐⭐⭐ |
+| Self-consistency | Sample multiple times, take majority vote | ⭐⭐⭐ |
+| ReAct | Reason → Act → Observe loop for tool use | ⭐⭐⭐⭐ |
+
+**The production system prompt template:**
+```
+You are [ROLE] that [GOAL].
+
+## Rules
+- [Hard constraint]
+- [Safety rule]
+
+## Output Format
+[Exact specification with example]
+
+## Edge Cases
+- If [situation], then [behavior]
+```
+
+**Remember these 3 things:**
+1. Clarity in → quality out. Vague prompt = vague response.
+2. Format spec + examples > lengthy instructions
+3. Break complex tasks into chains of simple prompts
+
+---
+
+## Self-Check Questions
+
+1. **What's the difference between the system prompt and the user message?**
+
+<details>
+<summary>Answer</summary>
+The system prompt sets persistent rules, persona, and constraints that apply to the entire conversation. The user message is the per-request instruction. Models treat system prompts as higher authority — they're harder to override through user messages. In production AI apps, your prompt engineering lives in the system prompt; user messages contain the actual input.
+</details>
+
+2. **When would few-shot prompting fail to help?**
+
+<details>
+<summary>Answer</summary>
+When: (1) you need highly consistent behavior across thousands of examples — use fine-tuning instead. (2) Your examples are low quality or inconsistent — the model learns bad patterns. (3) The task is something the model fundamentally doesn't know how to do — examples can't teach new capabilities, only guide existing ones.
+</details>
+
+3. **Why does "think step by step" improve reasoning accuracy?**
+
+<details>
+<summary>Answer</summary>
+Because LLMs generate tokens sequentially. When forced to "think out loud," each step becomes context for the next step. This is mathematically more likely to be correct than jumping to the final answer in one step — intermediate tokens act as a scratchpad that reduces the probability of skipping a logical step.
+</details>
+
+4. **What's the risk of asking for JSON output without using structured outputs mode?**
+
+<details>
+<summary>Answer</summary>
+The model might return valid JSON most of the time, but will occasionally: add explanation text before/after the JSON, produce malformed JSON on complex schemas, use slightly different field names, or truncate if max_tokens is too low. For production apps, use tool_choice or response_format to guarantee valid JSON matching your schema.
+</details>
+
+5. **You have a complex task that needs: web search + data processing + writing a report. Should you put this all in one prompt or chain it?**
+
+<details>
+<summary>Answer</summary>
+Chain it into 3 separate LLM calls: (1) search and extract relevant info, (2) process/analyze the data, (3) write the report based on the analysis. Single "do everything" prompts produce worse results because the model's attention is split and each sub-task gets less "budget." Chaining lets you validate/clean intermediate outputs too.
+</details>
+
+---
+
+## Go Deeper
+
+1. **[Anthropic Prompt Engineering Guide](https://docs.anthropic.com/en/docs/build-with-claude/prompt-engineering/overview)** — The official guide from the team that built Claude. Covers techniques specific to Claude with examples. Best starting point for practical production use. (1 hour)
+
+2. **[Chain-of-Thought Prompting Elicits Reasoning in Large Language Models](https://arxiv.org/abs/2201.11903)** — The original CoT paper by Wei et al. Understanding why it works makes you better at applying it. Read the abstract and examples section. (20 min)
+
+3. **[Prompt Engineering Guide](https://www.promptingguide.ai/)** — Open-source guide covering every major technique with examples in multiple languages. Use it as a reference when you're stuck. (reference, ongoing)
+
+4. **[Leaked System Prompts collection](https://github.com/jujumilk3/leaked-system-prompts)** — Real system prompts from ChatGPT, Claude, Gemini, etc. Reading production-grade system prompts is the fastest way to level up. (30 min browsing)
+
+5. **[DSPy](https://github.com/stanfordnlp/dspy)** — Framework for programmatically optimizing prompts instead of writing them by hand. When you've outgrown manual prompt engineering, DSPy is the next step. (explore when ready)
+
+---
+
+**What's next?** Great prompts are powerful, but LLMs only know what they were trained on. To answer questions about *your* data, you need [RAG →](rag.md)

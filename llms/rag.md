@@ -1,212 +1,195 @@
 # RAG (Retrieval-Augmented Generation)
 
-## What Is It?
+## TL;DR
 
-RAG is a technique that gives LLMs access to **external knowledge** by retrieving relevant documents and including them in the prompt. Instead of relying only on what the model memorized during training, you **fetch the right information at query time** and hand it to the model.
+RAG gives LLMs access to external knowledge by fetching relevant documents at query time and including them in the prompt. Instead of relying on what the model memorized during training, you search your own data store and hand the relevant pieces to the model. The result: LLMs that answer questions about *your* documents, stay current, don't hallucinate from ignorance, and cite their sources.
 
-```
-Without RAG:
-  User: "What's our refund policy?"
-  LLM:  "I don't know your specific refund policy." (or worse, makes one up)
+> 💡 **Key Insight:** RAG separates *knowing* (your database) from *reasoning* (the LLM). You can update the database without touching the model.
 
-With RAG:
-  1. Search your docs for "refund policy" → finds refund-policy.md
-  2. Insert that document into the prompt
-  3. LLM: "Your refund policy allows returns within 30 days with receipt..."
-```
+---
 
-## Frontend Analogy
+## The Mental Model
 
-```javascript
-// RAG is like server-side rendering with data fetching
+**Think of RAG like a lawyer preparing for a case.**
 
-// WITHOUT RAG (pure LLM) — like a static page with hardcoded data:
-function Page() {
-  return <div>Data from build time only (training data)</div>;
-}
+A great lawyer doesn't memorize every law ever written. They have a research team that finds the relevant statutes and case precedents, then the lawyer reads those documents and argues the case based on them.
 
-// WITH RAG — like getServerSideProps fetching fresh data:
-async function getServerSideProps(context) {
-  const query = context.params.question;
-  const relevantDocs = await vectorDB.search(query);  // ← retrieval
-  return { props: { docs: relevantDocs } };
-}
+| Real world | Technical concept |
+|------------|------------------|
+| Lawyer's question to research team | User query |
+| Research team searches law library | Vector database similarity search |
+| Relevant case files found | Retrieved document chunks |
+| Lawyer reads the files | Retrieved context inserted into prompt |
+| Lawyer's argument | LLM's generated response |
+| "According to statute 42B..." | Source citations in response |
 
-function Page({ docs }) {
-  // LLM now has current, relevant data to work with
-  return <Answer context={docs} />;
-}
+Without RAG: the LLM is a lawyer arguing from memory. With RAG: they're arguing from the actual documents.
 
-// The LLM is the renderer, RAG is the data fetching layer
-```
+---
 
-## Why RAG Matters
+## Why It Exists (Problem → Solution)
+
+**The problem:** LLMs are frozen in time. They know the world as of their training cutoff and know nothing about your company's internal docs, your product's API, this week's news, or your customer's account history.
+
+**What came before:** People tried fine-tuning models on their data. This is expensive, slow to update, and teaches *behavior* rather than *facts*. If a refund policy changes, you'd have to retrain the model.
+
+**What changed:** RAG separates knowledge from reasoning. You store knowledge in a searchable database. The LLM provides reasoning. Update the database in seconds — no model retraining.
 
 | Problem | Without RAG | With RAG |
 |---------|------------|----------|
-| Knowledge cutoff | "I only know things up to my training date" | Fetches current information |
-| Hallucinations | Makes up plausible-sounding but wrong answers | Answers grounded in real documents |
+| Knowledge cutoff | "I only know up to my training date" | Fetches current information |
+| Hallucinations | Makes up plausible-sounding answers | Answers grounded in real docs |
 | Private data | Can't access your company's docs | Searches your internal knowledge base |
 | Source attribution | "I think..." (no source) | "According to refund-policy.md..." |
-| Cost | Fine-tuning is expensive | Just update your document store |
+| Updates | Retrain model ($$$) | Update document store (free) |
 
-## The RAG Pipeline
+---
 
-```
-User Query → Embed Query → Search Vector DB → Retrieve Top-K Docs → Build Prompt → LLM → Response
-                                    ↑
-                            ┌───────┴────────┐
-                            │  Vector Store   │
-                            │  (your docs,    │
-                            │   pre-embedded) │
-                            └─────────────────┘
-```
+## Core Concepts
 
-### Step-by-Step Breakdown
+### 1. Embeddings — Turning Text Into Numbers
 
-### Step 1: Prepare Your Documents (Indexing)
+**Plain English:** An embedding is a list of numbers that represents the *meaning* of a piece of text. Similar meanings produce similar lists of numbers.
 
-Before you can search, you need to process and store your documents.
+**Analogy:** Imagine meaning as a location in a huge multidimensional city. "How do I return a product?" and "What's the refund process?" are two different addresses but in the same neighborhood. "What's the weather today?" is in a completely different borough. Embeddings give everything an address — and searching by meaning means finding nearby addresses.
 
 ```
-Raw Documents                    Chunks                        Vectors
-┌──────────────┐     ┌──────────────────────┐     ┌──────────────────┐
-│ refund.pdf   │     │ "Returns within 30   │     │ [0.12, -0.45,    │
-│ (50 pages)   │ ──► │  days with receipt"  │ ──► │  0.78, 0.33, ...]│
-│              │     ├──────────────────────┤     ├──────────────────┤
-│              │     │ "Digital products    │     │ [-0.22, 0.91,    │
-│              │     │  are non-refundable" │     │  0.15, -0.67,...]│
-└──────────────┘     └──────────────────────┘     └──────────────────┘
-    Document              Chunking                   Embedding
-```
-
-### Step 2: Chunk Your Documents
-
-You can't embed a 50-page PDF as one vector — it would lose detail. You split it into meaningful chunks.
-
-```python
-# Common chunking strategies
-
-# 1. Fixed-size chunks (simplest)
-chunks = split_text(document, chunk_size=500, overlap=50)
-# Each chunk is ~500 tokens with 50-token overlap between chunks
-
-# 2. Sentence-based chunking
-chunks = split_by_sentences(document, max_sentences=5)
-
-# 3. Semantic chunking (smarter)
-# Split at natural boundaries: paragraphs, sections, headers
-chunks = split_by_headers(document)  # Each section = one chunk
-```
-
-**Chunk size tradeoffs:**
-```
-Small chunks (100-200 tokens):
-  ✅ More precise retrieval
-  ❌ Might miss broader context
-  Use for: FAQ, short answers
-
-Medium chunks (300-500 tokens):
-  ✅ Good balance of precision and context
-  Use for: Most use cases (start here)
-
-Large chunks (500-1000 tokens):
-  ✅ More context per result
-  ❌ Less precise, more noise
-  Use for: Complex topics needing full paragraphs
-```
-
-**Overlap matters:**
-```
-Without overlap:
-  Chunk 1: "...returns within 30 days"  |  Chunk 2: "with receipt. Digital..."
-  → If someone asks about "30-day receipt policy", neither chunk has the full answer
-
-With overlap (50 tokens):
-  Chunk 1: "...returns within 30 days with receipt. Digital..."
-  Chunk 2: "...30 days with receipt. Digital products are..."
-  → Both chunks capture the boundary content
-```
-
-### Step 3: Create Embeddings
-
-An embedding is a **vector (list of numbers)** that represents the meaning of text. Similar meanings → similar vectors.
-
-```
-Text: "How do I return a product?"
-Vector: [0.12, -0.45, 0.78, 0.33, -0.91, 0.55, ...]  (1536 numbers)
-
-Text: "What's the refund process?"
-Vector: [0.14, -0.42, 0.75, 0.31, -0.88, 0.52, ...]  (very similar!)
-
-Text: "What's the weather today?"
-Vector: [-0.67, 0.23, -0.11, 0.89, 0.45, -0.33, ...] (very different)
+"How do I return a product?"    → [0.12, -0.45, 0.78, 0.33, ...]  (1536 numbers)
+"What's the refund process?"    → [0.14, -0.42, 0.75, 0.31, ...]  ← very similar!
+"What's the weather today?"     → [-0.67, 0.23, -0.11, 0.89, ...] ← very different
 ```
 
 ```javascript
-// Frontend analogy: Embeddings are like a hash function for meaning
+// Embeddings are like a hash function for meaning
 
-// Hash function: same input → same hash (exact match)
-// hash("hello") === hash("hello")  ✅
-// hash("hello") !== hash("hi")     ✅ (different strings)
+// Regular hash: same input → same hash (exact match)
+hash("hello") === hash("hello")  // true
+hash("hello") !== hash("hi")     // true (different strings)
 
 // Embedding: similar meaning → similar vectors (semantic match)
-// embed("How do I return a product?") ≈ embed("What's the refund process?")
-// Even though the WORDS are completely different!
+similarity(embed("return a product"), embed("refund process"))  // 0.95 (very close)
+similarity(embed("return a product"), embed("weather today"))   // 0.12 (very far)
 
-// This is the magic — search by MEANING, not keywords
+// You can search by MEANING, not keywords — this is the magic.
 ```
 
 **Popular embedding models:**
 ```
-Model                    Dimensions   Speed    Quality
-───────────────────────────────────────────────────────
-OpenAI text-embedding-3-small  1536  Fast     Good
-OpenAI text-embedding-3-large  3072  Medium   Better
-Cohere embed-v3               1024  Fast     Great
-Voyage AI voyage-3            1024  Fast     Great (for code)
-BGE / E5 (open source)       768-1024  Fast  Good (free!)
+Model                           Dimensions   Cost          Quality
+────────────────────────────────────────────────────────────────
+OpenAI text-embedding-3-small   1536         ~$0.02/M tok  Good
+OpenAI text-embedding-3-large   3072         ~$0.13/M tok  Better
+Cohere embed-v3                 1024         Free tier     Great
+BGE / E5 (open source)          768–1024     Free          Good
+Voyage AI voyage-3              1024         ~$0.06/M tok  Great for code
 ```
 
-### Step 4: Store in a Vector Database
+**Common misconception:** Better embeddings always mean better RAG. In practice, chunking strategy and retrieval quality matter as much as the embedding model. Start simple.
 
-A vector database is optimized for storing and searching vectors by similarity.
+---
+
+### 2. Vector Databases — Searching by Meaning
+
+**Plain English:** A vector database stores embeddings and finds the most similar ones to a query — fast, even with millions of documents.
+
+**Analogy:** A regular database is like a filing cabinet with alphabetical labels — great for exact matches. A vector database is like a library with a brilliant librarian who can say "you want this book, and these 4 other books are conceptually similar, even though they're in different sections."
 
 ```javascript
-// It's like a regular database, but instead of:
-//   SELECT * FROM docs WHERE title LIKE '%refund%'    (keyword match)
+// Regular database (keyword search):
+SELECT * FROM docs WHERE content LIKE '%refund%'
+// → Only finds docs containing the word "refund"
 
-// You do:
-//   SELECT * FROM docs ORDER BY similarity(embedding, query_embedding) LIMIT 5
-//   (meaning match)
+// Vector database (semantic search):
+SELECT * FROM docs ORDER BY cosine_similarity(embedding, query_embedding) LIMIT 5
+// → Finds docs about "returns", "money back", "reimbursement" — same concept, different words
 ```
 
 **Popular vector databases:**
 ```
-Database        Type            Best For
-─────────────────────────────────────────────────────
-Pinecone        Managed cloud   Production, zero maintenance
-ChromaDB        Local/embedded  Prototyping, small projects
-pgvector        PostgreSQL ext  Already using Postgres
-Weaviate        Self-hosted     Full-featured, hybrid search
-Qdrant          Self-hosted     Performance, Rust-based
-FAISS           Library (Meta)  Research, in-memory
+Database     Type              Best For
+──────────────────────────────────────────────────────
+Pinecone     Managed cloud     Production, zero ops overhead
+ChromaDB     Local/embedded    Prototyping, small projects
+pgvector     PostgreSQL ext    Already using Postgres
+Weaviate     Self-hosted       Full-featured, hybrid search
+Qdrant       Self-hosted       Performance-critical, Rust-based
+FAISS        Library (Meta)    Research, in-memory, no server
 ```
 
-### Step 5: Retrieve and Generate
+**Common misconception:** You need a dedicated vector database. For many projects, `pgvector` (adding vector search to your existing Postgres) is the right move — less infrastructure to manage.
 
-At query time, embed the user's question and find the most similar document chunks.
+---
+
+### 3. Chunking — Splitting Documents for Search
+
+**Plain English:** You can't embed an entire 50-page PDF as one vector — it would be too vague. You split documents into smaller pieces (chunks) so each chunk is specific and searchable.
+
+**Analogy:** Index cards in a library. Instead of one card per book, you write one card per key concept in the book. When someone asks a specific question, they find the right card — not the whole book.
+
+```
+Raw document (50 pages)
+       │
+       ▼  chunk
+┌──────────────────────┐   ┌──────────────────────┐   ┌──────────────────────┐
+│ "Returns within 30   │   │ "Digital products are │   │ "Contact support for  │
+│  days with receipt"  │   │  non-refundable..."   │   │  policy exceptions..."│
+└──────────────────────┘   └──────────────────────┘   └──────────────────────┘
+       │                          │                          │
+       ▼  embed                   ▼  embed                   ▼  embed
+  [0.12, -0.45, ...]         [-0.22, 0.91, ...]         [0.55, -0.31, ...]
+```
+
+**Chunking strategies:**
+```python
+# 1. Fixed-size chunks (simplest — start here)
+chunks = split_text(document, chunk_size=500, overlap=50)
+
+# 2. Sentence-based (more natural)
+chunks = split_by_sentences(document, max_sentences=5)
+
+# 3. Recursive character splitting (most common in practice)
+# Tries to split at: paragraphs → sentences → words → characters
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+chunks = splitter.split_text(document)
+```
+
+**Chunk size tradeoffs:**
+```
+Size            Precision   Context     Use for
+──────────────────────────────────────────────────────
+100–200 tokens  Very high   Very low    FAQ, specific facts
+300–500 tokens  High        Good        Most use cases (start here)
+500–1000 tokens Medium      High        Complex topics needing context
+1000+ tokens    Low         Very high   Legal/technical docs
+```
+
+**Why overlap matters:**
+```
+Without overlap (chunk boundary):
+  Chunk 1: "...returns within 30 days"     ← answer is split
+  Chunk 2: "with receipt. Digital..."      ← across two chunks
+
+With 50-token overlap:
+  Chunk 1: "...returns within 30 days with receipt. Digital..."
+  Chunk 2: "...30 days with receipt. Digital products are..."
+  → Both chunks capture the boundary, neither loses context
+```
+
+**Common misconception:** Smaller chunks are always better for precision. Too-small chunks lose the surrounding context needed to answer correctly. Start with 300–500 tokens.
+
+---
+
+### 4. Retrieval — Finding What Matters
+
+**Plain English:** At query time, embed the user's question and find the most similar chunks. Return the top K results.
+
+**Analogy:** Like Spotify's recommendation engine — you describe what you want, it finds the most similar items in its database. Except instead of songs, you're finding document chunks.
 
 ```python
-# Pseudocode for the full RAG pipeline
-
-# 1. User asks a question
 query = "Can I return a digital product?"
+query_vector = embed(query)  # same embedding model as documents
 
-# 2. Embed the query (same model used for documents)
-query_vector = embed(query)  # → [0.14, -0.42, ...]
-
-# 3. Search vector DB for similar chunks
 results = vector_db.search(query_vector, top_k=3)
 # Returns:
 # [
@@ -214,66 +197,90 @@ results = vector_db.search(query_vector, top_k=3)
 #   { text: "Returns within 30 days with receipt...", score: 0.78 },
 #   { text: "Contact support for exceptions...", score: 0.71 },
 # ]
-
-# 4. Build the prompt with retrieved context
-prompt = f"""Answer the user's question based ONLY on the following context.
-If the context doesn't contain the answer, say "I don't know."
-
-Context:
-{results[0].text}
-{results[1].text}
-{results[2].text}
-
-Question: {query}
-"""
-
-# 5. Send to LLM
-answer = llm.generate(prompt)
-# → "No, digital products are non-refundable according to our policy.
-#    However, you can contact support for exceptions."
 ```
 
-## Building a RAG System in JavaScript
+**Common misconception:** Retrieval is a solved problem. In practice, retrieval quality is the #1 cause of bad RAG performance. If you retrieve the wrong chunks, even the best LLM can't give good answers. Measure retrieval precision before blaming the LLM.
 
-Here's how it looks with real code you'd write as an AI engineer:
+---
+
+## How the Full RAG Pipeline Works (Step-by-Step)
+
+```
+                        ┌─────────────────────────────────┐
+INDEXING                │ 1. Load documents                │
+(happens once)          │ 2. Split into chunks             │
+                        │ 3. Embed each chunk              │
+                        │ 4. Store in vector DB            │
+                        └─────────────────────────────────┘
+
+                        ┌─────────────────────────────────┐
+QUERYING                │ 5. User asks a question          │
+(per request)           │ 6. Embed the question            │
+                        │ 7. Search DB for top-K chunks    │
+                        │ 8. Build prompt with chunks      │
+                        │ 9. Send to LLM                   │
+                        │ 10. Return answer + citations    │
+                        └─────────────────────────────────┘
+```
+
+```
+User Query
+    │
+    ▼
+Embed query ──► Vector DB ──► Top-K chunks
+                    ▲               │
+                    │               ▼
+              Pre-embedded    Build prompt:
+              document        [System][Context: chunk1, chunk2...][Question]
+              store                   │
+                                      ▼
+                                   LLM API
+                                      │
+                                      ▼
+                              Answer + source citations
+```
+
+---
+
+## Code in Practice
+
+### Minimal RAG in TypeScript
 
 ```typescript
-import { Anthropic } from '@anthropic-ai/sdk';
+import Anthropic from '@anthropic-ai/sdk';
 import { ChromaClient } from 'chromadb';
 
-// 1. Initialize
 const anthropic = new Anthropic();
 const chroma = new ChromaClient();
-const collection = await chroma.getOrCreateCollection({ name: "docs" });
+const collection = await chroma.getOrCreateCollection({ name: 'docs' });
 
-// 2. Index documents (do this once)
-async function indexDocuments(docs: string[]) {
-  for (const doc of docs) {
-    const chunks = chunkText(doc, { size: 500, overlap: 50 });
-    
+// Step 1: Index documents (run once)
+async function indexDocs(docs: string[]) {
+  for (let i = 0; i < docs.length; i++) {
+    const chunks = chunkText(docs[i], 500);  // your chunking function
     await collection.add({
-      ids: chunks.map((_, i) => `doc-${i}`),
+      ids: chunks.map((_, j) => `doc-${i}-chunk-${j}`),
       documents: chunks,  // ChromaDB auto-embeds with a default model
     });
   }
 }
 
-// 3. Query with RAG
-async function askQuestion(question: string): Promise<string> {
+// Step 2: Query with RAG
+async function ask(question: string): Promise<string> {
   // Retrieve relevant chunks
   const results = await collection.query({
     queryTexts: [question],
-    nResults: 5,
+    nResults: 3,
   });
 
-  const context = results.documents[0].join('\n\n');
+  const context = results.documents[0].join('\n\n---\n\n');
 
-  // Generate answer with context
+  // Generate with context
   const response = await anthropic.messages.create({
     model: 'claude-sonnet-4-5-20241022',
     max_tokens: 1024,
-    system: `Answer questions based on the provided context. 
-             If the context doesn't contain the answer, say so.
+    system: `Answer based only on the provided context.
+             If the context doesn't contain the answer, say "I don't have that information."
              Always cite which part of the context you're using.`,
     messages: [{
       role: 'user',
@@ -285,150 +292,295 @@ async function askQuestion(question: string): Promise<string> {
 }
 ```
 
-## Advanced RAG Techniques
+### Practical: RAG with metadata filtering
 
-### Hybrid Search (Keywords + Semantic)
-
-Combine traditional keyword search (BM25) with vector similarity for better results.
-
-```
-User: "error code 404 in auth service"
-
-Keyword search (BM25): Great at finding "404" and "auth service" exactly
-Semantic search: Great at finding docs about "authentication failures"
-
-Hybrid = both combined → best of both worlds
-```
-
-```
-Query: "error code 404 in auth service"
-
-BM25 Results:                    Vector Results:
-1. "HTTP 404 in auth module"     1. "Authentication failure handling"
-2. "Auth service error codes"    2. "Auth service error codes"
-3. "404 page configuration"      3. "Debugging service errors"
-
-Hybrid (re-ranked):
-1. "Auth service error codes"        ← appears in both
-2. "HTTP 404 in auth module"         ← strong keyword match
-3. "Authentication failure handling"  ← strong semantic match
-```
-
-### Query Transformation
-
-Sometimes the user's query isn't great for retrieval. Transform it first.
-
-```python
-# Original query: "it's not working"  ← too vague for search
-
-# Technique 1: Query expansion
-# Ask the LLM to generate a better search query
-better_query = llm("Rewrite this user question as a detailed search query: 'it's not working'")
-# → "troubleshooting common errors and issues"
-
-# Technique 2: HyDE (Hypothetical Document Embeddings)
-# Ask the LLM to write a hypothetical answer, then search for documents similar to that
-hypothetical_answer = llm("Write a short paragraph answering: 'it's not working'")
-# → "If your application is not working, check the following: 1. Verify..."
-# Now search for docs similar to this hypothetical answer
-results = vector_db.search(embed(hypothetical_answer))
-```
-
-### Re-ranking
-
-After initial retrieval, use a more powerful model to re-rank results by relevance.
-
-```
-Initial retrieval (fast, might be noisy):
-  1. Chunk about refund timelines    (score: 0.89)
-  2. Chunk about digital refunds     (score: 0.85)  ← most relevant
-  3. Chunk about shipping policy     (score: 0.83)
-  4. Chunk about refund exceptions   (score: 0.80)
-
-After re-ranking (slower, more accurate):
-  1. Chunk about digital refunds     (score: 0.95)  ← promoted!
-  2. Chunk about refund exceptions   (score: 0.88)
-  3. Chunk about refund timelines    (score: 0.72)
-  4. Chunk about shipping policy     (score: 0.31)  ← demoted
-```
-
-### Metadata Filtering
-
-Add metadata to chunks for more targeted search.
-
-```javascript
-// When indexing, add metadata
+```typescript
+// Index with metadata
 await collection.add({
-  ids: ["doc-1"],
-  documents: ["Returns within 30 days..."],
+  ids: ['chunk-1'],
+  documents: ['Returns within 30 days with receipt...'],
   metadatas: [{
-    source: "refund-policy.md",
-    department: "customer-support",
-    last_updated: "2024-01-15",
-    audience: "customer"
+    source: 'refund-policy.md',
+    department: 'customer-support',
+    last_updated: '2024-01-15',
   }]
 });
 
-// When querying, filter by metadata
+// Query with metadata filter
 const results = await collection.query({
-  queryTexts: ["refund policy"],
-  where: { department: "customer-support" },  // Only search support docs
+  queryTexts: ['refund policy'],
+  where: { department: 'customer-support' },  // Only search support docs
   nResults: 5,
 });
 ```
 
+### Production: Full RAG pipeline with Python
+
+```python
+from anthropic import Anthropic
+import chromadb
+
+client = Anthropic()
+chroma = chromadb.Client()
+collection = chroma.get_or_create_collection("knowledge_base")
+
+def query_rag(question: str, top_k: int = 3) -> dict:
+    # 1. Retrieve relevant chunks
+    results = collection.query(query_texts=[question], n_results=top_k)
+    chunks = results["documents"][0]
+    sources = [m["source"] for m in results["metadatas"][0]]
+
+    # 2. Build grounded prompt
+    context = "\n\n".join(
+        f"[Source: {src}]\n{chunk}" for src, chunk in zip(sources, chunks)
+    )
+
+    # 3. Generate answer
+    response = client.messages.create(
+        model="claude-sonnet-4-5-20241022",
+        max_tokens=1024,
+        system="""Answer based ONLY on the provided context sources.
+                  If unsure, say so. Always cite the source filename.""",
+        messages=[{
+            "role": "user",
+            "content": f"Context:\n{context}\n\nQuestion: {question}"
+        }]
+    )
+
+    return {
+        "answer": response.content[0].text,
+        "sources": list(set(sources)),  # deduplicate
+    }
+```
+
+---
+
+## Advanced RAG Techniques
+
+### Hybrid Search (Semantic + Keyword)
+
+Best of both worlds: semantic search finds conceptually related docs, keyword search finds exact terms.
+
+```
+Query: "error code 404 in auth service"
+
+Keyword search (BM25):                 Semantic search:
+1. "HTTP 404 in auth module"           1. "Authentication failure handling"
+2. "Auth service error codes"          2. "Auth service error codes"
+3. "404 page configuration"            3. "Debugging service errors"
+
+Hybrid (re-ranked by both scores):
+1. "Auth service error codes"     ← appears in both ✅
+2. "HTTP 404 in auth module"      ← strong keyword match
+3. "Authentication failure handling" ← strong semantic match
+```
+
+### HyDE (Hypothetical Document Embeddings)
+
+When a user query is short/vague, generate a hypothetical answer and search for documents similar to *that*.
+
+```python
+# User query: "it's not working"  ← too vague for good retrieval
+
+# Step 1: Generate a hypothetical answer
+hypo = llm("Write a short technical answer to: 'it's not working'")
+# → "If your application is not working, check: 1. Logs for error messages..."
+
+# Step 2: Search for docs similar to the hypothetical answer
+results = vector_db.search(embed(hypo))
+# → Finds troubleshooting guides (way better than searching "it's not working")
+```
+
+### Re-ranking
+
+Initial retrieval is fast but imperfect. A re-ranker model does a second, more expensive pass to improve ordering.
+
+```
+Initial retrieval (fast vector search):
+  1. Refund timelines chunk    (score: 0.89)
+  2. Digital refunds chunk     (score: 0.85)  ← actually most relevant
+  3. Shipping policy chunk     (score: 0.83)
+
+After re-ranking (cross-encoder model — slower, more accurate):
+  1. Digital refunds chunk     (score: 0.95)  ← promoted to #1
+  2. Refund timelines chunk    (score: 0.72)
+  3. Shipping policy chunk     (score: 0.31)  ← demoted
+```
+
+---
+
 ## RAG vs Fine-tuning — When to Use Which
 
 ```
-┌─────────────────┬──────────────────────┬──────────────────────┐
-│                 │ RAG                  │ Fine-tuning          │
-├─────────────────┼──────────────────────┼──────────────────────┤
-│ Updates data    │ ✅ Instant (update DB)│ ❌ Retrain model     │
-│ Cost            │ $ (API + DB hosting)  │ $$$$ (GPU compute)  │
-│ Setup time      │ Hours                 │ Days/weeks          │
-│ Accuracy        │ High (with good docs) │ High (with good data)│
-│ Best for        │ Knowledge Q&A         │ Behavior/style change│
-│ Private data    │ ✅ Data stays in DB   │ ⚠️ Data baked in model│
-│ Hallucination   │ Low (grounded)        │ Medium               │
-│ Example         │ "Answer from our docs"│ "Write like our brand"│
-└─────────────────┴──────────────────────┴──────────────────────┘
+┌─────────────────┬─────────────────────┬─────────────────────┐
+│                 │ RAG                 │ Fine-tuning         │
+├─────────────────┼─────────────────────┼─────────────────────┤
+│ Updates data    │ ✅ Instant           │ ❌ Retrain model    │
+│ Cost            │ $ (API + DB)         │ $$$$ (GPU compute) │
+│ Hallucination   │ Low (grounded)       │ Medium              │
+│ Private data    │ ✅ Stays in your DB  │ ⚠️ Baked in model   │
+│ Cites sources   │ ✅ Easy              │ ❌ Hard             │
+│ Best for        │ Knowing facts        │ Doing a behavior    │
+│ Example         │ "Answer from docs"   │ "Write like us"    │
+└─────────────────┴─────────────────────┴─────────────────────┘
 
 Rule of thumb:
-- Need the model to KNOW something?      → RAG
-- Need the model to DO something?         → Fine-tuning
-- Need both?                              → RAG + Fine-tuning
+  Model needs to KNOW something?  → RAG
+  Model needs to DO something?    → Fine-tuning
+  Needs both?                     → RAG + Fine-tuning
 ```
 
-## Common RAG Pitfalls
+---
+
+## Gotchas & Pitfalls
 
 ```
-❌ Chunks too small → loses context, retrieves fragments
-❌ Chunks too large → retrieves irrelevant noise
-❌ No overlap      → information lost at chunk boundaries
-❌ Wrong embedding model → poor similarity matching
-❌ Too few results  → might miss the answer
-❌ Too many results → floods context window with noise
-❌ No source citation → user can't verify answers
-❌ No fallback      → model hallucinates when context lacks answer
+❌ Chunks too small → ✅ Use 300–500 tokens
+   Loses surrounding context, retrieves unhelpful fragments
 
-✅ Start with 300-500 token chunks, 50-token overlap
-✅ Use hybrid search (semantic + keyword)
-✅ Retrieve 3-5 chunks, re-rank, then use top 3
-✅ Always include "If you don't know, say so" in system prompt
-✅ Return source citations with every answer
+❌ Chunks too large → ✅ Start smaller, measure
+   Retrieves too much noise, dilutes relevant content
+
+❌ No chunk overlap → ✅ Use 50–100 token overlap
+   Loses information at chunk boundaries
+
+❌ Wrong embedding model for your domain → ✅ Test with your actual data
+   General embeddings may miss technical jargon or domain-specific meaning
+
+❌ Retrieving too many chunks → ✅ Start with top-3, measure
+   Flooding the prompt with noise confuses the LLM
+
+❌ No fallback for missing info → ✅ Add "If you don't know, say so" to system prompt
+   Without this, the LLM hallucinates when context doesn't contain the answer
+
+❌ No source citations → ✅ Always return sources
+   Users can't verify answers and trust erodes
+
+❌ Measuring LLM quality, not retrieval quality → ✅ Measure both separately
+   Bad retrieval + good LLM = bad answers. You'll blame the model when the real issue is retrieval.
 ```
 
-## Key Takeaways
+---
 
-| Concept | What to Remember |
-|---------|-----------------|
-| Embedding | Vector (list of numbers) representing meaning |
-| Vector DB | Database optimized for similarity search |
-| Chunking | Splitting docs into searchable pieces |
-| Top-K | Number of results to retrieve (start with 3-5) |
-| Hybrid search | Keywords + semantic = best results |
-| Re-ranking | Second pass to improve result quality |
+## When to Use / When NOT to Use RAG
 
-## What's Next?
+**Use RAG when:**
+- Your app needs to answer questions about private/internal documents
+- Information changes frequently (news, policies, prices)
+- You need source attribution ("according to document X...")
+- The LLM's training data doesn't cover your domain
+- You need to reduce hallucinations on factual queries
 
-Now you know how to give LLMs knowledge. Next, let's learn how to **build applications** with them using [LLM APIs & SDKs](llm-apis-sdks.md).
+**Don't use RAG when:**
+- The base LLM already knows the answer reliably (don't add complexity for free knowledge)
+- You need the model to change its *behavior* or *style* (use fine-tuning)
+- Your documents are tiny and fit in the context window directly (just include them all)
+- Latency is critical and the extra retrieval step is unacceptable (consider pre-warming or caching)
+
+---
+
+## Related Concepts (The Map)
+
+| If you know... | RAG concept is like... |
+|----------------|----------------------|
+| Server-side rendering (SSR) | RAG is like SSR for LLMs — fetch fresh data per request |
+| Search engines (Elasticsearch) | Vector DB is semantic Elasticsearch |
+| Database joins | RAG = JOIN between your query and your knowledge base |
+| CDN/caching | Embedding docs is like pre-rendering — expensive once, fast to serve |
+| React Suspense + data fetching | RAG pipeline = async data fetch before rendering the answer |
+
+**Connected topics:**
+- **LLM Fundamentals** → why LLMs hallucinate (what RAG solves)
+- **Prompt Engineering** → RAG prompts need careful context injection design
+- **LLM APIs & SDKs** → how to call the LLM with the retrieved context
+- **Fine-tuning** → the alternative to RAG when behavior, not knowledge, needs to change
+
+---
+
+## Cheat Sheet
+
+| Term | One-line definition |
+|------|---------------------|
+| Embedding | List of numbers representing text meaning; similar text → similar numbers |
+| Vector DB | Database for storing and similarity-searching embeddings |
+| Chunking | Splitting documents into searchable pieces (aim for 300–500 tokens) |
+| Top-K | Number of chunks to retrieve (start with 3–5) |
+| Overlap | Repeated tokens between adjacent chunks — prevents boundary info loss |
+| Hybrid search | Semantic + keyword search combined for better precision |
+| Re-ranking | Second-pass model that re-orders retrieved results by relevance |
+| HyDE | Search using a hypothetical answer instead of the raw query |
+| Grounding | Answers based on provided context, not model memory |
+
+**The minimal RAG prompt:**
+```
+Answer based ONLY on the following context.
+If the context doesn't contain the answer, say "I don't know."
+Always cite the source.
+
+Context:
+{retrieved_chunks}
+
+Question: {user_question}
+```
+
+**Remember these 3 things:**
+1. Retrieval quality is more important than LLM quality for RAG performance
+2. Start with 300–500 token chunks, 50-token overlap, top-3 retrieval
+3. Always include a "say I don't know" fallback in the system prompt
+
+---
+
+## Self-Check Questions
+
+1. **Why can't you just put your entire company knowledge base in the system prompt?**
+
+<details>
+<summary>Answer</summary>
+Three reasons: (1) Cost — you pay per input token, and 10,000 docs would be millions of tokens per request. (2) Context window limits — even 200K tokens won't fit a large knowledge base. (3) "Lost in the middle" — models lose focus on information buried deep in huge contexts. RAG solves this by retrieving only the 3–5 most relevant chunks.
+</details>
+
+2. **What's the difference between semantic search and keyword search, and when does each fail?**
+
+<details>
+<summary>Answer</summary>
+Keyword search finds exact word matches (good for specific terms, codes, names). Semantic search finds meaning matches (good for paraphrased queries, synonyms). Keyword fails when users paraphrase; semantic fails when users use exact technical terms (like "HTTP 404") that might not map to semantically similar docs. Hybrid search combines both.
+</details>
+
+3. **A user asks "it's not working" and your RAG returns irrelevant docs. What's the fix?**
+
+<details>
+<summary>Answer</summary>
+Use HyDE: first ask the LLM to generate a hypothetical detailed answer to "it's not working," then search for documents similar to that hypothetical answer. The hypothetical answer contains rich technical language ("check logs," "verify configuration," etc.) that retrieves much better results than the vague original query.
+</details>
+
+4. **Why do chunks need overlap? Give a concrete example of what goes wrong without it.**
+
+<details>
+<summary>Answer</summary>
+Without overlap, information spanning a chunk boundary is split. Example: chunk 1 ends with "returns within 30 days" and chunk 2 starts with "with receipt required." Neither chunk answers "What do I need for a return?" correctly. With 50-token overlap, both chunks contain the complete sentence, so retrieval finds the full answer.
+</details>
+
+5. **Your RAG system gives correct answers 70% of the time. How do you debug it?**
+
+<details>
+<summary>Answer</summary>
+Separate retrieval from generation: (1) First, test retrieval alone — for the failing 30%, are the right chunks being retrieved? If not, the problem is chunking, embedding, or retrieval, not the LLM. (2) If the right chunks ARE retrieved but the LLM still gives wrong answers, the problem is prompt design or the LLM not following grounding instructions. Fix retrieval first — it's the most common bottleneck.
+</details>
+
+---
+
+## Go Deeper
+
+1. **[LlamaIndex Documentation](https://docs.llamaindex.ai/)** — The most comprehensive RAG framework for Python. The docs include excellent conceptual explanations of every component. Start with "Understanding" section. (2 hours)
+
+2. **[Pinecone Learning Center](https://www.pinecone.io/learn/)** — Provider-agnostic guides on embeddings, vector search, and RAG architecture. Best hands-on explainers with code examples. (2 hours)
+
+3. **[BEIR Benchmark](https://github.com/beir-cellar/beir)** — Standard benchmark for retrieval evaluation. Understanding how retrieval is measured helps you build better RAG systems. (30 min to understand, ongoing as reference)
+
+4. **[Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks](https://arxiv.org/abs/2005.11401)** — The original RAG paper by Lewis et al. (Meta AI). Read the abstract and introduction to understand the original formulation vs. what practitioners do today. (20 min)
+
+5. **[ChromaDB Quickstart](https://docs.trychroma.com/getting-started)** — Build your first RAG system in 20 minutes with ChromaDB + Python. The fastest path from theory to working code. (20 min)
+
+---
+
+**What's next?** You know how to give LLMs knowledge. Now learn how to build full applications: [LLM APIs & SDKs →](llm-apis-sdks.md)

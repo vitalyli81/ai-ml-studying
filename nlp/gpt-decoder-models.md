@@ -1,61 +1,72 @@
 # GPT & Decoder Models
 
-## What Is It?
+## 1. TL;DR
 
-GPT (Generative Pre-trained Transformer) is a **decoder-only Transformer** that generates text by predicting **one token at a time**, left to right. It's the architecture behind ChatGPT, Claude, Llama, and every major chatbot/AI assistant.
+GPT-style models generate text by predicting **one token at a time, left to right**. They're pre-trained on massive text to learn language, then aligned with human preferences to be helpful. The key superpower is **in-context learning** — teach them new tasks with just a few examples in the prompt, no retraining. As an AI Engineer, you'll mostly call these via API (Claude, GPT-4) and control them with prompt engineering, temperature, and sampling parameters.
 
-```
-"The cat sat on the" → predict "mat"
-"The cat sat on the mat" → predict "."
-"The cat sat on the mat." → predict [end]
+---
 
-Each step: see everything before → predict next token → add it → repeat
-```
+## 2. The Mental Model
 
-## Frontend Analogy
+> 💡 **Think of it like this:** GPT is like **autocomplete that actually understands you**.
 
-```javascript
-// GPT is like server-sent events (SSE) / streaming response:
-// Tokens arrive one at a time, each depending on what came before
+Your phone's autocomplete suggests the next word based on the last few words you typed. GPT does the same, but it "read" the entire internet first — so when it predicts the next word, it can draw on everything from Shakespearean prose to Python documentation to medical textbooks.
 
-const eventSource = new EventSource('/api/chat');
-eventSource.onmessage = (event) => {
-  // Each token arrives sequentially
-  // "The" → "cat" → "sat" → "on" → "the" → "mat"
-  appendToOutput(event.data);
-};
+| Real world | Technical concept |
+|---|---|
+| Phone autocomplete predicting the next word | GPT predicting the next token |
+| Read 10,000 books before writing | Pre-training on 1T+ tokens |
+| Professional training changing how you think | RLHF aligning behavior to human preferences |
+| You can only read words you've already seen in a sentence | Causal (left-to-right) attention mask |
+| SSE/streaming chunks arriving one at a time | Autoregressive token generation |
 
-// You can't skip ahead — each token depends on all previous tokens
-// That's exactly how GPT generates text
-```
+---
 
-## How GPT Generates Text
+## 3. Why It Exists
+
+**The problem:** Before 2018, NLP models were task-specific — a spam classifier couldn't also do translation. Building every task required separate data collection, training, and deployment. Expensive and inflexible.
+
+**What came before:** RNNs and LSTMs trained from scratch on each task. Earlier Transformers (like the original 2017 paper) were mostly used as encoder-decoders for translation.
+
+**The insight:** What if you trained one huge language model on all the world's text, then fine-tuned it for tasks? GPT-1 (2018) proved this worked. GPT-2 (2019) showed it scaled dramatically. GPT-3 (2020) showed you barely even need fine-tuning — just describe the task in the prompt.
+
+**What changed:** The AI field shifted from "train a model per task" to "prompt a foundation model." Every major chatbot, code assistant, and AI agent today descends from this architecture.
+
+---
+
+## 4. Core Concepts
 
 ### Autoregressive Generation
 
-"Autoregressive" = each output becomes input for the next step:
+**One-line definition:** Generate text by predicting one token at a time, feeding each output back as the next input.
+
+**Analogy:** Writing a story word by word, where each word you write becomes part of the context for the next word.
 
 ```
-Step 1: Input  "Tell me about"        → Predict "cats"
-Step 2: Input  "Tell me about cats"    → Predict "."
-Step 3: Input  "Tell me about cats."   → Predict "Cats"
-Step 4: Input  "Tell me about cats. Cats" → Predict "are"
-...continues until [end] token or max length
+Input:  "The recipe for chocolate cake starts with"
+
+Step 1: Input → predict "pre"
+Step 2: Input + "pre" → predict "heating"
+Step 3: Input + "pre" + "heating" → predict "the"
+Step 4: Input + "pre" + "heating" + "the" → predict "oven"
+...continues until [end] token or max_tokens reached
 ```
 
-### Masked Self-Attention (Causal Attention)
+**Common misconception:** ❌ "GPT generates the entire response at once" → ✅ It generates one token at a time in a loop. That's why streaming works — the model genuinely produces tokens sequentially.
 
-Unlike BERT (sees all tokens), GPT **can only look backwards**:
+---
+
+### Causal (Left-to-Right) Attention
+
+**One-line definition:** Each token can only attend to itself and tokens before it — never future tokens.
+
+**Analogy:** Reading a book where you're not allowed to peek ahead. You can only use what you've seen so far to understand the current word.
 
 ```
-Generating: "The cat sat on the mat"
+Sequence: "The cat sat on the mat"
 
-When processing "sat":
-  Can see:    "The", "cat", "sat"     ✓
-  Cannot see: "on", "the", "mat"      ✗ (future tokens masked)
-
-This is enforced by an attention mask:
-Token:    The  cat  sat  on   the  mat
+Attention mask (✓ = can see, ✗ = cannot):
+         The  cat  sat  on   the  mat
 The:      ✓    ✗    ✗    ✗    ✗    ✗
 cat:      ✓    ✓    ✗    ✗    ✗    ✗
 sat:      ✓    ✓    ✓    ✗    ✗    ✗
@@ -64,87 +75,160 @@ the:      ✓    ✓    ✓    ✓    ✓    ✗
 mat:      ✓    ✓    ✓    ✓    ✓    ✓
 ```
 
-## The GPT Evolution
+This triangular mask is what makes training possible — you can train on all positions simultaneously during training, even though inference is sequential.
+
+**Common misconception:** ❌ "Causal attention is a limitation of GPT" → ✅ It's intentional. Left-to-right attention is what makes generation possible. BERT's bidirectional attention means it can't generate — it would need to see the future tokens it's trying to generate.
+
+---
+
+### Pre-training + Alignment (3-Step Pipeline)
+
+**One-line definition:** GPT goes from "text completer" to "helpful assistant" in three stages.
+
+**Analogy:** Think of it like training a brilliant intern:
+1. They read every book in the library (pre-training)
+2. They practice following specific instructions with worked examples (instruction fine-tuning)
+3. They get feedback from people about what "helpful" means and adjust (RLHF)
 
 ```
-GPT-1 (2018):   117M params    — showed language models can be pretrained
-GPT-2 (2019):   1.5B params   — "too dangerous to release" — surprisingly coherent text
-GPT-3 (2020):   175B params   — few-shot learning, no fine-tuning needed
-ChatGPT (2022): GPT-3.5 + RLHF — conversation, instruction following
-GPT-4 (2023):   ~1.8T params  — multimodal (text + images), strong reasoning
-GPT-4o (2024):  Optimized      — faster, cheaper, same quality
+Stage 1: Pre-training (unsupervised)
+  Data: ~1 trillion tokens of internet text
+  Task: predict next token
+  Result: knows facts, grammar, code, reasoning — but just completes text
+
+Stage 2: Instruction Fine-tuning (supervised)
+  Data: 10K-100K human-written (prompt, response) pairs
+  Task: learn to follow instructions
+  Result: responds to "explain X" instead of just completing the sentence
+
+Stage 3: RLHF (Reinforcement Learning from Human Feedback)
+  Data: human rankings of model outputs
+  Task: learn which responses humans prefer
+  Result: helpful, harmless, honest behavior
 ```
 
-### The Key Insight: Scale → Emergent Abilities
+**Common misconception:** ❌ "ChatGPT is just a bigger language model" → ✅ The base GPT model is not ChatGPT. RLHF fundamentally changes behavior — the same weights, differently trained, refuse harmful requests and format responses helpfully.
+
+---
+
+### In-Context Learning
+
+**One-line definition:** GPT can learn new tasks from examples written directly in the prompt — no weight updates required.
+
+**Analogy:** Like a consultant who reads a briefing document and immediately applies its guidelines, without needing months of training.
 
 ```
-Small model:   Can complete sentences
-Medium model:  Can answer questions
-Large model:   Can reason, write code, follow complex instructions
-Huge model:    Can do math, plan, use tools, think step-by-step
+Zero-shot (no examples):
+  "Classify: 'The battery life is incredible' → "
 
-Nobody programmed these abilities — they EMERGED from scale.
+Few-shot (with examples):
+  "Classify:
+  'Great product!' → positive
+  'Terrible quality' → negative
+  'Works perfectly' → positive
+  'The battery life is incredible' → "
+
+Chain-of-thought (show reasoning):
+  "Q: A shirt costs $25, 20% off. Final price?
+  A: Discount = 20% × $25 = $5. Price = $25 - $5 = $20."
 ```
 
-## How GPT Learns: Pre-training + Alignment
+Adding "Let me think step by step" to a prompt can improve accuracy on reasoning tasks by 20-40%.
 
-### Step 1: Pre-training (Unsupervised)
+**Common misconception:** ❌ "Few-shot examples update the model's weights" → ✅ No weights change. The model processes examples as context and pattern-matches at inference time. Weights only change during actual training.
 
-Train on the entire internet to predict next tokens:
+---
 
-```
-Training data: "The capital of France is ___"
-Model learns:  "Paris" (from millions of web pages)
+### Temperature & Sampling
 
-Training data: "def fibonacci(n):\n    ___"
-Model learns:  "if n <= 1: return n" (from millions of code files)
-```
+**One-line definition:** Parameters that control how creative/random vs. focused/deterministic the output is.
 
-Result: a model that knows facts, grammar, code, reasoning patterns — but it's not helpful yet. It just completes text.
-
-### Step 2: Instruction Fine-tuning (Supervised)
-
-Train on human-written (prompt, response) pairs:
+**Analogy:** A temperature dial on a mood ring — low temperature = calm and predictable, high temperature = wild and random.
 
 ```
-Prompt:   "Explain photosynthesis in simple terms"
-Response: "Plants use sunlight, water, and CO2 to make food and oxygen..."
+At each step, GPT outputs a probability distribution over all tokens:
+  "The cat sat on the" → [mat: 40%, floor: 30%, rug: 20%, chair: 10%]
 
-Prompt:   "Write a Python function to sort a list"
-Response: "def sort_list(lst):\n    return sorted(lst)"
+Temperature=0.0 (greedy): always pick highest prob → "mat" every time
+Temperature=0.5 (focused): flatten distribution slightly, mostly picks "mat"
+Temperature=1.0 (balanced): sample from original distribution
+Temperature=2.0 (creative): flatten so random tokens become more likely → unpredictable
+
+Top-p=0.9: only sample from the tokens that together sum to 90% probability
+            In this case: [mat, floor, rug] — cut "chair" which is in the tail
 ```
 
-Result: the model follows instructions instead of just completing text.
+**Common misconception:** ❌ "Temperature=0 is always best for accuracy" → ✅ For deterministic factual tasks, yes. But temperature=0 produces repetitive, boring text for creative tasks. Match temperature to the task.
 
-### Step 3: RLHF (Reinforcement Learning from Human Feedback)
+---
 
-Humans rank multiple responses. The model learns which responses humans prefer:
+### The GPT Evolution
+
+```mermaid
+timeline
+    title GPT Family Growth
+    2018 : GPT-1 (117M params)
+         : Proved pretraining + fine-tuning works
+    2019 : GPT-2 (1.5B params)
+         : "Too dangerous to release"
+         : Surprisingly coherent generation
+    2020 : GPT-3 (175B params)
+         : Few-shot learning, no fine-tuning needed
+    2022 : ChatGPT (GPT-3.5 + RLHF)
+         : Conversation and instruction following
+    2023 : GPT-4
+         : Multimodal, strong reasoning
+    2024 : GPT-4o, o1, o3
+         : Speed + advanced reasoning
+```
+
+**Key insight:** Each jump in scale unlocked **emergent abilities** nobody predicted — reasoning, code generation, multi-step planning. These weren't programmed; they appeared from scale.
+
+---
+
+## 5. How It Actually Works (Step-by-Step)
+
+Let's trace generating "Paris" as the answer to "The capital of France is":
 
 ```
-Prompt: "Is it safe to mix bleach and ammonia?"
+INPUT: "The capital of France is"
 
-Response A: "Yes, mixing bleach and ammonia creates a powerful cleaner."  ← BAD
-Response B: "No! This creates toxic chloramine gas. Never mix them."      ← GOOD
+Step 1: Tokenize
+  ["The", " capital", " of", " France", " is"]
+  → [464, 3139, 286, 4881, 318]
 
-Human ranks B > A → model learns to prioritize safety and accuracy
+Step 2: Embed each token
+  Each token ID → 768-dimensional vector (from embedding table)
+
+Step 3: Add positional encodings
+  Position 0, 1, 2, 3, 4 → each gets a learned positional vector
+  Summed with token embeddings
+
+Step 4: Pass through 12 decoder layers (causal attention)
+  Each layer: tokens attend to all PREVIOUS tokens only
+  After 12 layers: each position has a rich contextual vector
+
+Step 5: Final linear + softmax
+  Take the LAST position's vector → project to vocab_size (50,257 for GPT-2)
+  Softmax → probability distribution over all tokens
+  Top entries: [" Paris": 0.72, " Lyon": 0.05, " Rome": 0.04, ...]
+
+Step 6: Sample (or argmax)
+  Temperature=0 → pick " Paris" (highest prob)
+  Temperature=0.7 → sample (usually " Paris", sometimes " Lyon")
+
+Step 7: Append " Paris" to input, repeat from Step 1
+  New input: "The capital of France is Paris"
+  → predict next token → "." → stop or continue
 ```
 
-This is what makes ChatGPT/Claude helpful, harmless, and honest.
+> 💡 **Key Insight:** The model never "knows" the answer to a question ahead of time. It computes a probability distribution over all possible next tokens, every single step. "Knowing" the capital of France means " Paris" gets very high probability after training on millions of sentences that mention it.
 
-## Open-Source Decoder Models
+---
 
-| Model | Creator | Params | Strength |
-|-------|---------|--------|----------|
-| **Llama 3** | Meta | 8B-70B | Best open-source general purpose |
-| **Mistral** | Mistral AI | 7B | Excellent for its size |
-| **Mixtral** | Mistral AI | 8x7B | Mixture of experts, strong reasoning |
-| **Phi-3** | Microsoft | 3.8B | Surprisingly good for tiny size |
-| **Gemma** | Google | 2B-7B | Good for mobile/edge deployment |
-| **CodeLlama** | Meta | 7B-34B | Specialized for code |
+## 6. Code in Practice
 
-## Using GPT-Style Models
-
-### Text Generation with Hugging Face
+### Minimal: Text generation with Hugging Face
 
 ```python
 from transformers import pipeline
@@ -160,7 +244,7 @@ result = generator(
 print(result[0]['generated_text'])
 ```
 
-### Using LLM APIs (What You'll Do Most as AI Engineer)
+### Practical: Using LLM APIs (what you'll do most as AI Engineer)
 
 ```python
 import anthropic
@@ -168,102 +252,149 @@ import anthropic
 client = anthropic.Anthropic()
 
 message = client.messages.create(
-    model="claude-sonnet-4-20250514",
+    model="claude-sonnet-4-5",
     max_tokens=1024,
     messages=[
-        {"role": "user", "content": "Explain React hooks in 3 sentences."}
+        {"role": "user", "content": "Explain attention mechanisms in 3 sentences."}
     ]
 )
 print(message.content[0].text)
 ```
 
-### Key Generation Parameters
+### Real-world pattern: Few-shot classification with LLM
 
 ```python
-# Temperature: controls randomness
-temperature=0.0   # deterministic — always same output (good for factual tasks)
-temperature=0.7   # balanced (good default for most tasks)
-temperature=1.0   # creative (good for brainstorming, stories)
+import anthropic
 
-# Top-p (nucleus sampling): limits the token pool
-top_p=0.9         # sample from tokens covering 90% of probability
+client = anthropic.Anthropic()
 
-# Max tokens: how long the response can be
-max_tokens=100    # short response
-max_tokens=4096   # long response
+def classify_support_ticket(ticket: str) -> str:
+    prompt = f"""Classify the customer support ticket into one of: billing, technical, returns, other.
 
-# Stop sequences: stop generating when you see this string
-stop=["\n\n", "END"]
+Examples:
+Ticket: "I was charged twice for my subscription" → billing
+Ticket: "The app crashes when I open settings" → technical
+Ticket: "I want to return my purchase" → returns
+Ticket: "What are your business hours?" → other
+
+Ticket: "{ticket}"
+→"""
+
+    response = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=10,
+        temperature=0,   # deterministic for classification
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return response.content[0].text.strip()
+
+print(classify_support_ticket("My payment didn't go through"))  # → billing
 ```
 
-## In-Context Learning (The GPT Superpower)
+---
 
-GPT can learn new tasks **from examples in the prompt** — no fine-tuning needed:
+## 7. Gotchas & Pitfalls
 
-### Zero-Shot (No Examples)
+❌ **Using GPT for understanding tasks (classification, NER)** → ✅ GPT can do these via prompting, but fine-tuned BERT is faster and cheaper. Use GPT for generation; BERT for classification.
 
+❌ **Setting temperature=0 for all tasks** → ✅ Temperature=0 for deterministic factual tasks (classification, extraction). Use 0.7 for balanced generation, 0.9+ for creative writing.
+
+❌ **Ignoring context window limits** → ✅ GPT-4 has 128K tokens. Claude has 200K. Exceeding the limit silently truncates the BEGINNING of your context — your system prompt might disappear.
+
+❌ **Not stopping generation properly** → ✅ Without `max_tokens` or `stop` sequences, models may ramble. Always set `max_tokens`. Use `stop=["\n\n"]` for short answers.
+
+❌ **Treating GPT's output as ground truth** → ✅ LLMs hallucinate confidently. For factual questions, use RAG or verify with external sources. High confidence score ≠ accurate.
+
+❌ **Sending entire documents in every request** → ✅ Context window costs tokens (= money). For RAG, retrieve only the relevant chunks, not entire documents.
+
+❌ **Forgetting that few-shot examples count toward the context window** → ✅ Each example you include takes tokens. Balance example quality vs. quantity vs. context budget.
+
+---
+
+## 8. When to Use / When NOT to Use
+
+### Use GPT-style models when:
+- **Text generation** — chatbots, content creation, code generation
+- **Flexible classification** — zero/few-shot without training data
+- **Reasoning tasks** — multi-step problems, chain-of-thought
+- **Summarization** — abstractive, high-quality summaries
+- **Translation** — general-purpose, especially with LLM APIs
+- **Instruction following** — when the task is hard to define with labeled examples
+
+### Don't use GPT-style models when:
+- **High-volume classification** with fixed labels — fine-tuned BERT is 10-100x cheaper per call
+- **Real-time streaming features** requiring <100ms latency — LLM APIs add 500ms+ overhead
+- **Offline/air-gapped environments** — if you can't call an API, you need to run a local model
+- **Exact/deterministic outputs** — LLMs are probabilistic; for deterministic rules, use code
+
+---
+
+## 9. Related Concepts (The Map)
+
+- **BERT (Encoder)** — the opposite pole. BERT understands; GPT generates. BERT is bidirectional; GPT is causal. If you know BERT, GPT is like BERT with the right half of its attention mask blacked out.
+- **Prompt Engineering** — the core skill for using GPT models. Your prompts are effectively your "training data" for zero/few-shot learning.
+- **RLHF** — the process that turns a raw language model into a helpful assistant. ChatGPT and Claude both use this. It's what makes models refuse harmful requests.
+- **Fine-tuning LLMs** — when few-shot prompting isn't accurate enough, you fine-tune a decoder model on your data. LoRA/QLoRA makes this feasible on consumer GPUs.
+- **AI Agents** — the next level: give a GPT model tools (web search, code execution, APIs) and a loop, and it becomes an agent that can accomplish multi-step tasks autonomously.
+
+---
+
+## 10. Cheat Sheet
+
+| Model | Creator | Params | Access | Best For |
+|---|---|---|---|---|
+| **GPT-4o** | OpenAI | ~200B | API | Best quality, general use |
+| **Claude Sonnet** | Anthropic | ~70B | API | Reasoning, long context |
+| **Llama 3 70B** | Meta | 70B | Open | Self-hosted, customization |
+| **Mistral 7B** | Mistral | 7B | Open | Fast, cheap, good quality |
+| **GPT-2** | OpenAI | 1.5B | Open | Learning, experimentation |
+
+**Generation parameters:**
+```python
+temperature=0.0    # deterministic (classification, extraction)
+temperature=0.7    # balanced default
+temperature=1.0    # creative (stories, brainstorming)
+top_p=0.9          # cut low-probability tail tokens
+max_tokens=1024    # always set this
+stop=["\n\n"]      # stop on double newline
 ```
-Classify this review as positive or negative:
-"The battery life is incredible" → positive
-```
 
-### Few-Shot (A Few Examples)
+**Remember this:**
+1. GPT = generation (one token at a time, left to right)
+2. In-context learning: examples in the prompt teach without training
+3. As an AI Engineer, you mostly call APIs — master prompting first
 
-```
-Classify reviews:
-"Great product!" → positive
-"Terrible quality" → negative
-"Works perfectly" → positive
-"Broke after a week" → negative
+---
 
-"The battery life is incredible" → ???
+## 11. Self-Check Questions
 
-GPT: "positive"   (learned the pattern from examples!)
-```
+1. Why does GPT generate tokens one at a time instead of all at once?
+2. What's the difference between zero-shot, few-shot, and chain-of-thought prompting?
+3. Why does temperature=2.0 produce incoherent text?
+4. A friend says "I'll train a GPT model from scratch for my startup." What would you say?
+5. What's the purpose of RLHF, and why can't you just use supervised fine-tuning alone?
 
-### Chain-of-Thought (Reasoning)
+<details>
+<summary>Answers</summary>
 
-```
-Q: If a shirt costs $25 and is 20% off, what do you pay?
-A: Let me think step by step.
-   Original price: $25
-   Discount: 20% of $25 = $5
-   Final price: $25 - $5 = $20
-```
+1. GPT is autoregressive — it's trained to predict the next token given all previous ones. There's no mechanism to produce the entire sequence simultaneously because each generated token must condition on all previously generated tokens. This is a fundamental architectural constraint, not a performance limitation.
 
-Adding "Let me think step by step" dramatically improves accuracy on reasoning tasks.
+2. **Zero-shot**: just give the task description, no examples. **Few-shot**: include 3-5 input-output examples in the prompt so the model learns the pattern. **Chain-of-thought**: include reasoning steps in the examples (or ask the model to "think step by step"), which dramatically improves performance on multi-step reasoning tasks.
 
-## BERT vs GPT — Complete Comparison
+3. At temperature=2.0, the probability distribution is flattened so that even low-probability tokens become likely candidates. This means the model frequently samples from weird, unlikely continuations. Coherent text requires the model to mostly pick high-probability, contextually appropriate tokens.
 
-| | BERT (Encoder) | GPT (Decoder) |
-|---|---|---|
-| **Direction** | Bidirectional (sees all) | Left-to-right (causal) |
-| **Training** | Masked language model | Next token prediction |
-| **Output** | Embeddings/classifications | Generated text |
-| **Strength** | Understanding | Generation |
-| **Tasks** | Classification, NER, search | Chatbots, writing, code gen |
-| **Sizes** | 110M-340M | 7B-1.8T |
-| **Fine-tune for** | Specific tasks (cheap) | Instruction following (expensive) |
-| **Use via** | Hugging Face locally | API calls (or local for open models) |
+4. Training GPT from scratch requires billions of dollars, thousands of GPUs, and terabytes of data. Instead: (1) Use an existing LLM API for most tasks, (2) fine-tune an open-source model like Llama 3 if you need customization, (3) use LoRA/QLoRA for cheap domain adaptation. "Train from scratch" is almost never the right move for a startup.
 
-## The Decoder → LLM Pipeline (What Comes Next)
+5. Supervised fine-tuning (SFT) teaches the model to follow instructions by training on (prompt, response) pairs. But it doesn't teach the model *what humans actually want* — a technically correct response can still be unhelpful, harmful, or verbose. RLHF adds a second stage where human raters rank responses, and those rankings train a reward model that guides further fine-tuning. This is what makes models helpful, harmless, and honest in ways SFT alone can't achieve.
 
-```
-Decoder models are the foundation of LLMs:
+</details>
 
-Decoder Architecture
-    ↓ scale up
-GPT-3 / Llama (pre-trained)
-    ↓ instruction fine-tuning
-ChatGPT / Claude (helpful assistant)
-    ↓ add tools
-AI Agents (can browse, code, search)
-    ↓ add retrieval
-RAG Systems (grounded in your data)
+---
 
-Your next phase (LLMs & AI Engineering) builds directly on this.
-```
+## 12. Go Deeper
 
-## Key Takeaway
-
-GPT-style decoder models generate text **one token at a time**, left to right. They're pre-trained on massive text to learn language, then aligned with human preferences (RLHF) to be helpful. The key innovation is **in-context learning** — they can learn new tasks from examples in the prompt without any training. As an AI Engineer, you'll mostly interact with these models via **APIs** (Claude, GPT) and use techniques like prompt engineering, few-shot learning, and chain-of-thought to get the best results. This is the direct bridge to Phase 5 (LLMs & AI Engineering).
+- **["Language Models are Few-Shot Learners" (Brown 2020 — GPT-3 paper)](https://arxiv.org/abs/2005.14165)** — the paper that changed everything. Shows in-context learning working at scale. Read Sections 1 and 3; the results speak for themselves.
+- **[Andrej Karpathy's "Let's build GPT from scratch"](https://www.youtube.com/watch?v=kCc8FmEb1nY)** — 2-hour video building a mini-GPT in pure PyTorch. Best way to internalize how attention and autoregressive generation work. Essential for real understanding.
+- **["Training language models to follow instructions" (InstructGPT paper)](https://arxiv.org/abs/2203.02155)** — explains how ChatGPT was built from GPT-3 using RLHF. Understand why the "alignment" step matters so much.
+- **[Hugging Face Text Generation docs](https://huggingface.co/docs/transformers/generation_strategies)** — comprehensive guide to generation strategies (greedy, beam search, sampling, top-k, top-p). Essential for controlling model output.
+- **[Simon Willison's LLM CLI tool](https://llm.datasette.io/)** — practical command-line tool for experimenting with dozens of LLMs. Great for developing intuition about different models' behaviors without writing code.
