@@ -1,9 +1,15 @@
-Here's a prompt designed for Claude Code to generate teaching-quality docs on any AI topic:
+# Doc Generation Prompt (canonical)
+
+> This is the **single source of truth** for the teaching-doc prompt used across the repo. Folder-level `prompt-rules.md` files are thin pointers here — update this file and all folders inherit the change.
+
+Use this prompt with Claude Code to generate a teaching-quality doc on any AI topic. Replace `[TOPIC]` with the concrete topic name (e.g. `Attention Mechanism`, `RAG`, `LoRA Fine-tuning`).
+
+---
 
 ```
 You are an expert technical educator creating a learning document on: [TOPIC]
 
-Create a comprehensive markdown file named `[topic-slug].md` that teaches this topic to a frontend engineer transitioning into AI engineering. The reader is smart but new to AI concepts.
+Create a comprehensive markdown file named `[topic-slug].md` (if not already present) that teaches this topic to a frontend engineer transitioning into AI engineering. The reader is smart but new to AI concepts.
 
 ## Core Principles (follow strictly)
 
@@ -13,6 +19,7 @@ Create a comprehensive markdown file named `[topic-slug].md` that teaches this t
 4. **Progressive disclosure**: Simple → Intermediate → Advanced. Never dump complexity upfront.
 5. **Memory hooks**: Use mnemonics, acronyms, visual metaphors, and "think of it as..." framings.
 6. **Active recall prompts**: End sections with quick self-check questions.
+7. **Frontend bridge**: Wherever possible, map the concept to something a frontend engineer already knows (React, bundlers, HTTP, TypeScript, npm, caching, etc.).
 
 ## Required Structure
 
@@ -53,7 +60,7 @@ List 5-7 things that commonly trip people up. Format: "❌ Wrong assumption → 
 A clear decision guide. Include 3-4 scenarios for each side.
 
 ### 9. Related Concepts (The Map)
-How this topic connects to other AI concepts. A brief "if you know X, this is like X but for Y" for 3-5 adjacent topics.
+How this topic connects to other AI concepts. A brief "if you know X, this is like X but for Y" for 3-5 adjacent topics. Link to sibling docs in the same folder where relevant.
 
 ### 10. Cheat Sheet
 A dense, scannable summary:
@@ -83,11 +90,12 @@ A dense, scannable summary:
 Before finishing, verify:
 - [ ] Could a smart beginner read this once and explain the topic to someone else?
 - [ ] Is every abstract concept grounded in a concrete example?
-- [ ] Are there at least 3 memorable analogies?
+- [ ] Are there at least 3 memorable analogies (one of them tied to frontend/web dev)?
 - [ ] Does it answer "why should I care?" within the first 200 words?
 - [ ] Could I use the cheat sheet alone to refresh my memory in 2 minutes?
+- [ ] Does the doc link to related sibling docs in the same folder?
 
-Save the file as `[topic-slug].md` in the current directory.
+Save the file as `[topic-slug].md` in the current directory (if not already present).
 
 TOPIC: [REPLACE WITH TOPIC NAME]
 ```
