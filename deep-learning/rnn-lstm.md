@@ -115,7 +115,25 @@ Cell state:  ──────────────────────�
 
 The cell state flows through unchanged by default (gradient ≈ 1 — no vanishing!). Gates selectively modify it. This is why LSTMs remember 100+ steps.
 
-**Common misconception:** ❌ "LSTM gates are fixed rules" → ✅ All gate values are learned during training. The network learns what's worth remembering for each specific task.
+**The cell state update in one equation:**
+
+```
+c_t = f_t ⊙ c_{t-1}  +  i_t ⊙ c̃_t
+       └──────────┘     └──────────┘
+       keep old memory   add new memory
+       (scaled by        (scaled by
+        forget gate)      input gate)
+
+where:
+  f_t = σ(W_f · [h_{t-1}, x_t])    ← forget gate  ∈ (0, 1)
+  i_t = σ(W_i · [h_{t-1}, x_t])    ← input gate   ∈ (0, 1)
+  c̃_t = tanh(W_c · [h_{t-1}, x_t]) ← candidate new info
+  ⊙ = element-wise multiplication
+```
+
+Read this intuitively: **"new memory = (how much to keep) × old memory + (how much to add) × new candidate."** A forget gate of 1.0 means "remember everything"; 0.0 means "erase it all." Because this update is *additive* (not multiplicative through a squashing function like vanilla RNN's `h_t = tanh(W·[h_{t-1}, x_t])`), gradients flowing back through time don't get squashed at each step — they flow through the `+` almost unchanged. That's the mathematical fix for vanishing gradients.
+
+**Common misconception:** ❌ "LSTM gates are fixed rules" → ✅ All gate values (`f_t`, `i_t`, `o_t`) are outputs of learned linear layers + sigmoid. The network learns *what is worth remembering* and *when to forget* for each specific task.
 
 ---
 

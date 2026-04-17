@@ -84,7 +84,14 @@ Generating "chat" (French for "cat"):
 
 The decoder doesn't just get one vector — it gets a dynamic blend of all encoder positions, weighted by relevance at each generation step.
 
-**Common misconception:** ❌ "Cross-attention is the same as self-attention" → ✅ Self-attention = a sequence attending to itself. Cross-attention = decoder attending to the encoder's output. The keys and values come from the encoder; the queries come from the decoder.
+**In Q/K/V terms (the vocabulary you'll see in papers and interviews):**
+- **Query (Q)** = "what am I looking for right now?" → comes from the **decoder's** current position
+- **Key (K)** = "what am I about?" → comes from **encoder** outputs (one per input token)
+- **Value (V)** = "what content do I carry?" → also comes from **encoder** outputs
+
+The decoder's Query is matched against every encoder Key (dot product → softmax = attention weights), then those weights blend the encoder Values into one context vector. That's the whole mechanism.
+
+**Common misconception:** ❌ "Cross-attention is the same as self-attention" → ✅ Self-attention: Q, K, V all come from the same sequence. Cross-attention: Q comes from the decoder, K and V come from the encoder. That's the only architectural difference — but it's what lets the decoder "look at" the input while generating.
 
 ---
 

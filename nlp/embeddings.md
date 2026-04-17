@@ -10,7 +10,7 @@ An embedding converts text (words, sentences, documents) into a **list of number
 
 > 💡 **Think of it like this:** Embeddings are **GPS coordinates for meaning**.
 
-On a map, nearby coordinates = nearby places. In embedding space, nearby vectors = similar meanings. "cat" and "kitten" live in the same neighborhood; "cat" and "rocket" live on different continents.
+On a map, nearby coordinates = nearby places. In embedding space, nearby vectors = similar meanings. "cat" and "kitten" live in the same neighborhood; "cat" and "rocket" live on different continents. The twist: real embeddings use hundreds of coordinates (not just lat/lng), because meaning has more than two axes.
 
 | Real world | Technical concept |
 |---|---|
@@ -18,7 +18,7 @@ On a map, nearby coordinates = nearby places. In embedding space, nearby vectors
 | Two locations close on a map | Two words with similar meaning |
 | Distance between locations | Cosine distance between embeddings |
 | City neighborhoods (finance district, arts district) | Clusters of semantically related words |
-| Map zoom level | Embedding dimension count |
+| Adding more axes beyond lat/lng (altitude, terrain, climate) | Higher embedding dimensions capturing richer meaning |
 
 ---
 

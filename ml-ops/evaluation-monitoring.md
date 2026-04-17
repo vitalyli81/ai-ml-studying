@@ -229,9 +229,19 @@ LLM-specific metrics (the new stuff):
 ### Building an Evaluation Pipeline
 
 ```
-Step 1: Create a golden test set
-        50-200 questions with expected answers (hand-written or curated)
-        Cover happy path, edge cases, tricky questions
+Step 1: Create a golden test set (the most underrated step)
+        50-200 (question, expected_answer) pairs. Sources, in order of value:
+          1. Real user questions from early traffic / pilot — ground truth for
+             the distribution you actually serve
+          2. Bug reports & support tickets — every production failure becomes
+             a permanent test case
+          3. Hand-written edge cases — tricky phrasings, ambiguity, refusals,
+             out-of-scope, adversarial inputs
+          4. LLM-generated candidates reviewed by a human — fast bootstrap
+             (never ship without human review: synthetic sets drift toward
+             "what the generator LLM thinks is a good question")
+        Cover: happy path, long tail, edge cases, safety/out-of-scope.
+        Version the set in git; tag each case with a category for slicing.
 
 Step 2: Run your model on every test question
         Store: question, retrieved_context, model_answer, expected_answer
@@ -288,7 +298,7 @@ JSON format: {{"accuracy": N, "groundedness": N, "helpfulness": N, "verdict": "p
 verdict is "fail" if any score < 3."""
 
     result = client.messages.create(
-        model="claude-sonnet-4-5-20241022",
+        model="claude-sonnet-4-6",
         max_tokens=200,
         messages=[{"role": "user", "content": prompt}]
     )
@@ -356,7 +366,7 @@ def answer_question(question: str, context: str) -> str:
     # This call is automatically traced in LangSmith dashboard
     # You see: inputs, outputs, latency, tokens, cost, errors
     response = anthropic_client.messages.create(
-        model="claude-sonnet-4-5-20241022",
+        model="claude-sonnet-4-6",
         max_tokens=1024,
         messages=[{
             "role": "user",

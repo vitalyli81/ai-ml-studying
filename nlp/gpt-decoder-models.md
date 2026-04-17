@@ -139,6 +139,36 @@ Adding "Let me think step by step" to a prompt can improve accuracy on reasoning
 
 ---
 
+### KV Cache (Why Streaming Is Cheap)
+
+**One-line definition:** A memory optimization that stores attention's Keys and Values from previous tokens so the model doesn't recompute them at every generation step.
+
+**Analogy:** Imagine writing a story where, before each new word, you had to re-read the entire story from the beginning. Exhausting. Instead, you keep a running summary in your head and just append the new word's context. The KV cache is that running summary.
+
+```
+Without KV cache (naive):
+  Step 1: compute attention for 1 token  → 1 unit of work
+  Step 2: compute attention for 2 tokens → 4 units  (recomputes token 1)
+  Step 3: compute attention for 3 tokens → 9 units  (recomputes 1, 2)
+  ...
+  Total for N tokens: O(N³) — quadratic explosion
+
+With KV cache:
+  Step 1: compute K,V for token 1, store in cache       → 1 unit
+  Step 2: compute K,V for token 2, append to cache      → 1 unit
+  Step 3: compute K,V for token 3, append to cache      → 1 unit
+  Total for N tokens: O(N²) — linear per step
+```
+
+**Why you care as an AI engineer:**
+- **Streaming speed:** the fast token-by-token response you see in ChatGPT/Claude depends on KV caching. Without it, every new token would take longer than the last.
+- **Prompt caching (Anthropic, OpenAI):** these APIs let you cache the KV for a large system prompt across requests — you pay full price once, then a fraction for reuses. Huge cost savings for RAG and agent systems.
+- **Memory limits:** the cache grows linearly with context length. A 100K-token conversation needs a big KV cache — this is why long context is expensive even when the *response* is short.
+
+**Common misconception:** ❌ "Long prompts are slow because the model 'thinks harder' about them" → ✅ Long prompts are slow because the prefill step (building the initial KV cache) is O(N²) in prompt length. Once the cache is built, each new generated token is cheap.
+
+---
+
 ### Temperature & Sampling
 
 **One-line definition:** Parameters that control how creative/random vs. focused/deterministic the output is.
@@ -362,7 +392,8 @@ stop=["\n\n"]      # stop on double newline
 **Remember this:**
 1. GPT = generation (one token at a time, left to right)
 2. In-context learning: examples in the prompt teach without training
-3. As an AI Engineer, you mostly call APIs — master prompting first
+3. KV cache makes streaming cheap and makes prompt caching a real cost lever
+4. As an AI Engineer, you mostly call APIs — master prompting first
 
 ---
 

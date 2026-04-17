@@ -99,19 +99,30 @@ app.use(predict)             // Output layer: final answer
 
 **One-line definition:** The cycle of predict → measure error → adjust weights, repeated until the model is good.
 
-**Analogy:** Like debugging with hot reload: run → see the bug → trace the root cause → fix → repeat.
+**Analogy — a thermostat tuning itself.** A thermostat holds the room at 21 °C. If it reads 19 °C, it knows (a) which direction is wrong (too cold) and (b) how far off (2 °C). It nudges the heater up, re-measures, nudges again. A neural network does the same thing — except it has millions of "knobs" (weights) instead of one, and the loss function tells it the exact direction and magnitude to nudge each knob.
 
 ```
 ┌─────────────────────────────────────────┐
 │  1. FORWARD PASS   → get prediction     │
 │  2. LOSS           → measure error      │
-│  3. BACKWARD PASS  → find root cause    │
-│  4. UPDATE WEIGHTS → apply the fix      │
+│  3. BACKWARD PASS  → per-weight "blame" │
+│  4. UPDATE WEIGHTS → nudge each knob    │
 │  5. REPEAT         → next iteration     │
 └─────────────────────────────────────────┘
 ```
 
-**Common misconception:** ❌ "The network randomly tries values until it works" → ✅ It follows the mathematical gradient — it always knows which direction to adjust each weight.
+**The 4 lines of PyTorch that run every iteration:**
+```python
+pred = model(x)              # 1. forward
+loss = loss_fn(pred, y)      # 2. measure error
+loss.backward()              # 3. compute gradient for every weight
+optimizer.step()             # 4. nudge each weight
+# (plus optimizer.zero_grad() before .backward() — see backpropagation.md)
+```
+
+Memorize this. You'll write it every single time you train anything.
+
+**Common misconception:** ❌ "The network randomly tries values until it works" → ✅ It follows the mathematical gradient — every weight gets a precise "change by this much in this direction" instruction, computed by backprop. No randomness, no guessing.
 
 ---
 

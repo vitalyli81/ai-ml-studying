@@ -258,6 +258,59 @@ Internet Text (trillions of tokens)
 
 ---
 
+## Attention — The Single Idea That Made LLMs Work
+
+Before architectures, understand this one mechanism. Everything else is scaffolding around it.
+
+**Plain English:** When the model generates the next token, it looks at every previous token and decides *how much each one matters* for this prediction. That weighted look-back is **attention**.
+
+**Analogy:** You're translating the sentence *"The cat that the dog chased was black."* To pick the right word for "was," you have to know the subject is "cat," not "dog." Your eyes snap back to "cat" — not equally to every word, but **more to the relevant ones**. Attention is that snap-back, made mathematical.
+
+**How it works (intuition, not linear algebra):**
+
+```
+Generating the next token for:  "The cat sat on the ___"
+
+For each previous token, the model computes 3 vectors:
+  Query  (Q) — "what am I looking for right now?"
+  Key    (K) — "what do I offer?"
+  Value  (V) — "what information do I carry?"
+
+Attention score(i, j) = how well token i's Query matches token j's Key
+                      = softmax( Q_i · K_j / √d )
+
+Next-token representation = Σ (attention_score × V_j) over all j
+
+Intuitively for predicting the word after "on the":
+  - "sat"  → high attention (tells us something is seated)
+  - "cat"  → high attention (the subject — "on the mat"? "on the chair"?)
+  - "The"  → low attention (not semantically useful here)
+```
+
+**Why this was the breakthrough (vs. RNNs):**
+
+```
+RNN (pre-2017):                    Transformer (2017+):
+  token 1 → hidden state             every token sees every other
+    ↓        (compressed summary)    token DIRECTLY — no bottleneck
+  token 2 → hidden state
+    ↓        (summary degrades)      Parallelizable on GPUs
+  token 3 → hidden state             → train on trillions of tokens
+    ↓                                → enables scale → enables LLMs
+  token 100 → "what was token 1?"
+              (forgotten)
+```
+
+RNNs had to squeeze all context into a single running hidden state — long-range info decayed. Attention lets token 5000 look directly at token 1 with no decay. That single change, plus GPU-parallelizable math, is what unlocked the scale era.
+
+**Multi-head attention:** The model runs many attention operations in parallel (e.g., 32 "heads"), each learning to focus on different kinds of relationships — one head might track subject-verb agreement, another might track coreference ("it" → "the cat"), another might track syntax. You don't program what each head does; they specialize during training.
+
+**Common misconception:** ❌ "Attention is how the model 'thinks'." ✅ Attention is how the model **routes information** between tokens. Thinking — if we want to call it that — emerges from stacking many attention + feedforward layers (typically 32–100+) on top of each other.
+
+> 💡 **Key Insight:** A Transformer is mostly just: attention layer → feedforward layer → repeat 32+ times. Simple building block, insane scale.
+
+---
+
 ## The Key Architectures
 
 ### GPT (Generative Pre-trained Transformer) — OpenAI

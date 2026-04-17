@@ -76,6 +76,8 @@ The model MUST read both directions to solve this:
 
 **Common misconception:** ❌ "MLM means BERT can fill in blanks at inference time" → ✅ MLM is the training objective, not the primary use. You wouldn't use BERT to fill blanks in production — that's a side effect. The real benefit is that MLM forces BERT to learn deep contextual representations.
 
+**How MLM → classification works (the step most docs skip):** During pretraining, BERT's output layer is `hidden_dim (768) → vocab_size (30,522)` — it predicts which word fills each masked position. When you fine-tune for classification, you **throw away that output layer** and bolt on a new one: `hidden_dim (768) → num_classes (e.g., 2)`. The body of BERT (the 12 encoder layers) stays the same — you're reusing the language understanding it built during MLM. The classification "head" is a new, randomly initialized layer that learns your task on top.
+
 ---
 
 ### [CLS] Token

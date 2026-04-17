@@ -225,43 +225,46 @@ wandb.agent(sweep_id, function=train, count=50)
 Model Registry state:
 
 Model: "sentiment-classifier"
-──────────────────────────────────────────────────────────
-Version │ Accuracy │ Deployed   │ Status       │ Run ID
-──────────────────────────────────────────────────────────
-v1      │ 85.2%    │ 2024-01-15 │ Archived     │ run_abc
-v2      │ 87.8%    │ 2024-02-01 │ Production ← │ run_def
-v3      │ 89.1%    │ —          │ Staging      │ run_ghi
+──────────────────────────────────────────────────────────────
+Version │ Accuracy │ Registered │ Aliases              │ Run ID
+──────────────────────────────────────────────────────────────
+v1      │ 85.2%    │ 2024-01-15 │ (none — archived)    │ run_abc
+v2      │ 87.8%    │ 2024-02-01 │ @production          │ run_def
+v3      │ 89.1%    │ —          │ @staging, @challenger│ run_ghi
 
-Current action: Promoting v3 from Staging → Production
-Rollback plan:  If v3 degrades, promote v2 back in 30 seconds
+Current action: Move @production from v2 → v3
+Rollback plan:  Move @production back to v2 (one API call, ~instant)
 ```
 
 ```python
-# MLflow model registry
+# MLflow model registry (MLflow 2.9+ uses aliases, not stages)
 import mlflow
 
 # Register a model (after training)
 model_uri = f"runs:/{run_id}/model"
 model_version = mlflow.register_model(model_uri, "sentiment-classifier")
 
-# Transition to staging for testing
 client = mlflow.MlflowClient()
-client.transition_model_version_stage(
+
+# Tag as "staging" for testing — aliases are free-form labels
+client.set_registered_model_alias(
     name="sentiment-classifier",
+    alias="staging",
     version=model_version.version,
-    stage="Staging"
 )
 
-# After passing evaluation, promote to production
-client.transition_model_version_stage(
+# After passing evaluation, promote: move the "production" alias to this version
+client.set_registered_model_alias(
     name="sentiment-classifier",
+    alias="production",
     version=model_version.version,
-    stage="Production"
 )
 
-# Load the production model by name (not by hardcoded path)
-model = mlflow.pytorch.load_model("models:/sentiment-classifier/Production")
+# Load the production model by alias (not by hardcoded version or path)
+model = mlflow.pytorch.load_model("models:/sentiment-classifier@production")
 ```
+
+> ⚠️ **Note:** Older tutorials use `transition_model_version_stage("Staging"|"Production")`. That stages API is deprecated as of MLflow 2.9. Use aliases (`@production`, `@staging`, `@champion`, `@challenger`) — they're more flexible and reflect current best practice.
 
 ---
 
@@ -490,8 +493,8 @@ def compare_models(candidate_path: str, production_model_name: str, min_improvem
     # Load candidate (just trained)
     candidate = mlflow.pyfunc.load_model(candidate_path)
     
-    # Load current production model from registry
-    production = mlflow.pyfunc.load_model(f"models:/{production_model_name}/Production")
+    # Load current production model from registry (alias-based, MLflow 2.9+)
+    production = mlflow.pyfunc.load_model(f"models:/{production_model_name}@production")
     
     # Run both on the same test set
     candidate_metrics = run_eval_suite(candidate, TEST_DATA)

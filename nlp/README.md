@@ -6,6 +6,17 @@ NLP (Natural Language Processing) is teaching computers to **understand, generat
 
 As an AI Engineer, NLP is your **most important domain**. LLMs (GPT, Claude) are NLP models. RAG systems process text. Chatbots understand language. This is where your career lives.
 
+## The Mental Model
+
+> 💡 **Think of it like this:** NLP is **teaching a computer to speak your language by converting everything it sees into numbers.**
+
+Every NLP system, no matter how fancy, boils down to three moves:
+1. **Text → numbers** (tokenization + embeddings)
+2. **Numbers → numbers** (some neural network does math on them)
+3. **Numbers → text or label** (decode back to something a human reads)
+
+Everything in this folder is either a step in that pipeline, a model that does step 2, or a way to adapt a model to your specific task.
+
 ## Frontend Analogy
 
 You already do text processing:
@@ -104,7 +115,14 @@ Era 5: Large Language Models (2022+)
 
 **Where you should focus:** Era 4 and 5. Understand Era 3 conceptually, but spend your time on Transformers and LLMs.
 
-## The Two Transformer Paradigms
+## The Three Transformer Paradigms
+
+Why are there three? Because NLP tasks come in three shapes:
+- **Input → label** (classify, extract) → needs deep *understanding* → **encoder-only** (BERT)
+- **Input → more text** (chat, autocomplete) → needs *generation* → **decoder-only** (GPT)
+- **Input → different text** (translate, summarize) → needs *understand THEN generate* → **encoder-decoder** (T5, BART)
+
+The architectures mirror the task shapes. Pick the model family that matches your task shape first; pick the specific model second.
 
 ### Encoder Models (BERT family) — Understanding
 

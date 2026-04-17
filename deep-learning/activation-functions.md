@@ -8,15 +8,25 @@ Activation functions are the "squish" operations applied after every neuron's we
 
 ## 2. The Mental Model
 
-> 💡 **Think of a light dimmer switch vs. an on/off switch.**
+> 💡 **Without activations, stacking 100 layers is mathematically the same as 1 layer. Activations are what make depth actually mean something.**
 
-A plain linear neuron is an on/off switch — it just passes a number through unchanged. An activation function is a dimmer with a custom curve: it can smoothly map any input to a specific range, clamp negatives to zero, or compress everything between 0 and 1.
+Here's the proof in two lines. If each layer is `output = W × input + b` (pure linear), then stacking two layers gives:
+
+```
+layer2(layer1(x)) = W₂ × (W₁ × x + b₁) + b₂
+                  = (W₂ × W₁) × x + (W₂ × b₁ + b₂)
+                  = W_combined × x + b_combined     ← still one linear layer!
+```
+
+No matter how many layers you stack, it collapses to a single matrix multiply — so you can only draw straight decision boundaries. Activation functions break this collapse by inserting a **non-linear bend** between layers.
+
+**Analogy — a light dimmer switch vs. an on/off switch.** A plain linear neuron is a pass-through wire. An activation function is a dimmer with a custom curve: clamp negatives to zero (ReLU), compress to 0–1 (sigmoid), or bend smoothly near zero (GELU). The *shape* of the bend is what lets the network carve curves, wiggles, and complex boundaries through the data.
 
 - **Electrical signal strength** → raw neuron output (z = weighted sum)
 - **Dimmer's response curve** → activation function shape
 - **Light output** → activated neuron output
 - **Different dimmers for different rooms** → different activations for different layers
-- **Why you need the dimmer** → without non-linearity, the whole network collapses to one linear equation
+- **Why you need the dimmer at all** → without non-linearity, depth gives you zero extra expressive power
 
 ---
 

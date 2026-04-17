@@ -217,7 +217,7 @@ Good for: Fast models, interactive features, real-time needs
 Client → POST /predict → Server → { "job_id": "abc123" }
                                      ↓ (model runs in background)
 Client → GET /result/abc123 → { "status": "done", "result": ... }
-Good for: Slow models, video processing, batch jobs, LLMs with long outputs
+Good for: Slow models, video processing, batch jobs, long offline LLM tasks
 ```
 
 **Batch Inference:**
@@ -229,6 +229,73 @@ vs.
 
 Good for: Embeddings, offline processing, nightly jobs
 ```
+
+**Streaming (token-by-token for LLMs):**
+```
+Client → POST /chat (stream=true) → Server opens SSE / chunked HTTP
+                                      ↓
+  ← chunk: "The"      ← chunk: " capital"  ← chunk: " of"  ← chunk: " France" ...
+                                      ↓
+Response completes.  Perceived latency drops dramatically.
+
+Good for: chat UIs, long LLM responses, anywhere time-to-first-token matters
+Key metric: TTFT (time-to-first-token), not end-to-end latency
+```
+
+---
+
+### 5. Serving LLMs Specifically (vLLM, TGI, SGLang)
+
+**One-line definition:** Dedicated inference servers that keep a GPU continuously fed with tokens from many concurrent requests, instead of one-request-at-a-time.
+
+**Analogy:** A standard FastAPI+PyTorch loop serves LLMs like a single-lane checkout. vLLM serves them like a dozen lanes with a smart manager — partially-done orders get interleaved so no lane sits idle.
+
+**Why FastAPI+PyTorch alone is not enough for LLMs:**
+
+```
+Naive LLM serving (PyTorch + FastAPI):
+  request A starts → generates 200 tokens → 5s
+  request B waits  → generates 200 tokens → another 5s
+  GPU utilization: ~30%  (huge idle gaps)
+
+vLLM / TGI / SGLang (continuous batching + PagedAttention):
+  A starts, B starts, C starts — all interleaved per-token
+  GPU utilization: >90%
+  Throughput: 5-20× higher on the same hardware
+```
+
+**Key techniques these servers implement:**
+
+- **Continuous batching** — batch new requests in *mid-generation*, not just at the start
+- **PagedAttention (vLLM)** — KV-cache is paged like virtual memory, eliminating fragmentation
+- **Prefix caching** — common system-prompt prefixes share KV-cache across users
+- **Speculative decoding** — a small draft model proposes tokens, the big model verifies in parallel
+- **Tensor / pipeline parallelism** — split a big model across multiple GPUs
+
+**The main options:**
+
+| Server | Who / License | Strength |
+|--------|---------------|----------|
+| **vLLM** | UC Berkeley, Apache 2.0 | Highest throughput, widest model support |
+| **TGI** (Text Generation Inference) | Hugging Face, Apache 2.0 | Best integration with HF ecosystem |
+| **SGLang** | Open source | Fastest for structured output / complex prompts |
+| **TensorRT-LLM** | NVIDIA | Lowest latency on NVIDIA GPUs, harder setup |
+| **Ollama / llama.cpp** | Open source | Local/dev, CPU + consumer GPU |
+
+```bash
+# Serving Llama 3 with vLLM — one command, OpenAI-compatible API
+pip install vllm
+python -m vllm.entrypoints.openai.api_server \
+    --model meta-llama/Meta-Llama-3-8B-Instruct \
+    --port 8000
+
+# Now your code can point the OpenAI SDK at it:
+# OpenAI(base_url="http://localhost:8000/v1")
+```
+
+**When you don't need this:** If you're calling a hosted API (Anthropic, OpenAI, Bedrock), they handle all of this for you — you just need FastAPI for your *app* logic. You only reach for vLLM/TGI when self-hosting an open-weights LLM.
+
+**Common misconception:** ❌ "I'll just serve Llama with FastAPI + transformers." ✅ That works for demos. At any real traffic, you need vLLM/TGI — the throughput gap is an order of magnitude.
 
 ---
 
@@ -431,7 +498,9 @@ gcloud run deploy sentiment-api \
 | RAG | Your vector search + LLM call needs to be served as an API too |
 | Vector Databases | Often co-deployed alongside your model serving API |
 | CI/CD for ML | Automates the build → test → deploy cycle for new model versions |
-| Monitoring | Observes your serving API for latency, errors, and output quality |
+| LLM Observability | Traces every request through your serving layer — prompts, tokens, cost |
+| Reliability Patterns | Retries, timeouts, and fallbacks live at / in front of the serving layer |
+| Safety & Guardrails | Input/output checks wrap each serve call before returning to the user |
 
 ---
 

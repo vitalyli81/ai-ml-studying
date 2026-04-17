@@ -201,29 +201,59 @@ async function agentLoop(userMessage: string): Promise<string> {
 
 ---
 
-### 4. Parallel Tool Calls
+### 4. Parallel vs Sequential Tool Calls
 
-**Plain English:** When multiple tools don't depend on each other, the LLM can request them all at once in a single response. Execute them in parallel for speed.
+**Plain English:** When tools don't depend on each other, the LLM can request them all in a single response — execute in parallel. When they do depend on each other, it has to do one, see the result, then decide the next.
 
-**Analogy:** Like a chef prepping multiple dishes simultaneously. No need to finish the salad before starting the soup if they're independent. The LLM knows which calls can run concurrently.
+**Analogy:** A chef prepping multiple dishes. Independent steps (chop onions, boil water) happen at once. Dependent steps (taste the sauce → decide if it needs salt) have to be sequential — you can't season before tasting.
+
+**The two patterns:**
+
+```
+PARALLEL (independent):                  SEQUENTIAL (dependent):
+─────────────────────────────            ──────────────────────────────
+User: "Weather in Paris AND Tokyo"       User: "Email me that PR's author"
+                                          
+LLM response (one turn):                 Turn 1:
+  tool_use: get_weather("Paris")           LLM: get_pr(42)
+  tool_use: get_weather("Tokyo")         ← 2 blocks   Tool: { author: "alice@x.com", ... }
+                                          
+You: Promise.all([both])                  Turn 2:
+You send BOTH results back at once.        LLM: send_email("alice@x.com", ...)
+                                          (the second call needs the first's result)
+1 round-trip to the model.               2 round-trips — unavoidable.
+```
+
+**How the LLM decides:** It's emergent from training, but you can influence it:
+
+- **System prompt hint:** `"When a task involves independent lookups, request them in parallel."`
+- **Tool descriptions that suggest independence:** `"get_weather: Safe to call for multiple cities in one turn."`
+- **Task phrasing:** "Compare X and Y" triggers parallel calls more reliably than "Tell me about X. Then Y." — the word "and" nudges the model toward batching.
 
 ```typescript
-// LLM returns multiple tool_use blocks in one response
-response.content = [
-  { type: 'tool_use', name: 'get_weather', input: { city: 'Paris' } },
-  { type: 'tool_use', name: 'get_weather', input: { city: 'Tokyo' } },
-  { type: 'tool_use', name: 'search_flights', input: { from: 'Paris', to: 'Tokyo' } }
-];
+// Handle both patterns with the same loop
+const toolCalls = response.content.filter(c => c.type === 'tool_use');
 
-// Execute all in parallel — much faster than sequential
+// Promise.all handles 1 or N calls identically — parallel if multiple, fine if single
 const results = await Promise.all(
-  response.content
-    .filter(c => c.type === 'tool_use')
-    .map(tc => executeTool(tc.name, tc.input))
+  toolCalls.map(async tc => {
+    try {
+      const output = await executeTool(tc.name, tc.input);
+      return { type: 'tool_result' as const, tool_use_id: tc.id, content: JSON.stringify(output) };
+    } catch (err) {
+      // Return structured error — the LLM can often recover (try different args, give up gracefully)
+      return {
+        type: 'tool_result' as const,
+        tool_use_id: tc.id,
+        content: JSON.stringify({ error: String(err) }),
+        is_error: true,
+      };
+    }
+  })
 );
 ```
 
-**Common misconception:** The LLM always calls tools one at a time. Modern models (Claude, GPT-4) actively batch independent tool calls. A well-designed task like "compare weather in 3 cities" will trigger 3 parallel `get_weather` calls.
+**Common misconception:** "Parallel means faster, always use it." ✅ Only when calls are independent. If call B needs call A's output, forcing parallelism produces hallucinated arguments. Trust the model's choice — it's usually right — but log the ratio of parallel:sequential turns so you can spot regressions.
 
 ---
 
@@ -509,15 +539,28 @@ const result = await generateText({
 | Safety | Read=auto, Write=confirm, Delete=explicit confirm + log |
 | ReAct pattern | Reason then act — explicit Thought/Action/Observation structure |
 
-**The minimal agent loop:**
+**The minimal agent loop (production-shaped):**
 ```typescript
 while (steps++ < MAX_STEPS) {
   const res = await llm.create({ messages, tools });
   messages.push({ role: 'assistant', content: res.content });
-  if (res.stop_reason === 'end_turn') return getText(res);
-  const results = await Promise.all(getToolCalls(res).map(executeWithValidation));
+
+  // Handle every stop_reason — not just end_turn
+  if (res.stop_reason === 'end_turn')   return getText(res);
+  if (res.stop_reason === 'max_tokens') throw new Error('Hit max_tokens mid-thought — raise limit or shorten task');
+  if (res.stop_reason === 'stop_sequence') return getText(res);
+  if (res.stop_reason !== 'tool_use')   throw new Error(`Unexpected stop: ${res.stop_reason}`);
+
+  // Execute tools — wrap errors so the LLM can recover instead of the loop crashing
+  const results = await Promise.all(
+    getToolCalls(res).map(async tc => {
+      try   { return toolResult(tc.id, await executeWithValidation(tc)); }
+      catch (e) { return toolResult(tc.id, { error: String(e) }, { is_error: true }); }
+    })
+  );
   messages.push({ role: 'user', content: results });
 }
+throw new Error(`Agent exceeded ${MAX_STEPS} steps`);
 ```
 
 **Tool design checklist:**

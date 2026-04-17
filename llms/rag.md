@@ -199,7 +199,79 @@ results = vector_db.search(query_vector, top_k=3)
 # ]
 ```
 
-**Common misconception:** Retrieval is a solved problem. In practice, retrieval quality is the #1 cause of bad RAG performance. If you retrieve the wrong chunks, even the best LLM can't give good answers. Measure retrieval precision before blaming the LLM.
+**How "similar" is measured — cosine similarity:**
+
+```
+Two vectors' similarity = cosine of the angle between them
+                        = (A · B) / (|A| × |B|)    ← normalized dot product
+
+Range: -1 (opposite) ... 0 (unrelated) ... 1 (identical direction)
+
+Why cosine, not Euclidean distance?
+  Cosine ignores magnitude — only direction matters.
+  An embedding's "direction" encodes meaning; its length is mostly noise.
+  Two texts of different lengths about the same topic → same direction, different magnitudes.
+  Cosine treats them as similar. Euclidean wouldn't.
+
+Most embedding models output L2-normalized vectors, so cosine ≡ dot product.
+```
+
+**Choosing top_k — the precision/recall tradeoff:**
+
+```
+top_k = 1   → highest precision, but one wrong retrieval = wrong answer
+top_k = 3   → good default; the LLM can synthesize across a few chunks
+top_k = 10  → better recall, but adds noise and cost (each chunk = input tokens)
+top_k = 50+ → "lost in the middle" kicks in; LLM ignores most of it
+
+Rule of thumb: start at k=3–5. Increase only if evals show answers
+missing information that DID exist in the index.
+```
+
+**Measuring retrieval quality (before you blame the LLM):**
+
+```python
+# Build a small eval set: (question, chunk_id_that_should_be_retrieved)
+eval_set = [
+    ("Can I return a digital product?", "chunk_digital_refunds"),
+    ("How long does a refund take?",    "chunk_refund_timelines"),
+    # ... 20–50 of these
+]
+
+# Recall@k: fraction of queries where the right chunk appears in top-k
+def recall_at_k(k):
+    hits = 0
+    for question, correct_id in eval_set:
+        top = vector_db.search(embed(question), top_k=k)
+        if correct_id in [r.id for r in top]:
+            hits += 1
+    return hits / len(eval_set)
+
+print("Recall@3:", recall_at_k(3))   # e.g., 0.85
+print("Recall@10:", recall_at_k(10)) # e.g., 0.95
+# If recall@10 is low, the problem is chunking/embeddings, not the LLM.
+# If recall@3 is low but recall@10 is high, try re-ranking.
+```
+
+**Groundedness — did the LLM actually use the retrieved context?**
+
+Retrieval can be perfect and the LLM can still hallucinate by ignoring the context. Measure this separately:
+
+```python
+# LLM-as-judge groundedness check
+GROUND_PROMPT = """
+Given the CONTEXT and ANSWER below, is every factual claim in the ANSWER
+supported by the CONTEXT?
+
+CONTEXT: {context}
+ANSWER:  {answer}
+
+Reply with JSON: {{"grounded": bool, "unsupported_claims": [str]}}
+"""
+# Run this on every eval example. Track groundedness% as a first-class metric.
+```
+
+**Common misconception:** Retrieval is a solved problem. In practice, retrieval quality is the #1 cause of bad RAG performance. If you retrieve the wrong chunks, even the best LLM can't give good answers. Measure retrieval recall@k AND groundedness separately before blaming the LLM.
 
 ---
 

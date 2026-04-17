@@ -167,6 +167,8 @@ Is your target a NUMBER or CATEGORY?
 
 Read in this order for the best learning path:
 
+### Algorithms
+
 | # | File | Type | One-Line Summary |
 |---|------|------|-----------------|
 | 1 | [linear-regression.md](linear-regression.md) | Regression | Fit a straight line to predict numbers |
@@ -179,6 +181,14 @@ Read in this order for the best learning path:
 | 8 | [naive-bayes.md](naive-bayes.md) | Classification | Probability-based, great for text |
 | 9 | [k-means.md](k-means.md) | Unsupervised | Discover groups in data without labels |
 | 10 | [pca.md](pca.md) | Reduction | Reduce features while keeping information |
+
+### Cross-Cutting Topics (read alongside the algorithms)
+
+| # | File | Topic | One-Line Summary |
+|---|------|-------|-----------------|
+| 11 | [feature-engineering.md](feature-engineering.md) | Data prep | Turn raw data into inputs models can learn from |
+| 12 | [model-evaluation.md](model-evaluation.md) | Measuring quality | CV, precision/recall/F1, ROC/AUC, bias-variance |
+| 13 | [scikit-learn.md](scikit-learn.md) | The toolkit | Unified `fit`/`predict`/`transform` API + Pipelines |
 
 ## ML vs Deep Learning
 

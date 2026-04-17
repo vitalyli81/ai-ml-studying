@@ -125,18 +125,26 @@ attention = nn.MultiheadAttention(embed_dim=512, num_heads=8)
 
 **Analogy:** Numbering every person in the meeting room. Without numbers, the model sees the same "bag of people" regardless of seating order. Position numbers let it know "person at seat 1 spoke before person at seat 5."
 
+**Why it's required — attention is permutation-invariant.** Self-attention computes the same output for `[A, B, C]` as for `[C, B, A]` — it's literally a set operation. Without position info:
+
 ```
-"Dog bites man" ≠ "Man bites dog"
+"Dog bites man"   → attention output for "bites" = f({Dog, bites, man})
+"Man bites dog"   → attention output for "bites" = f({Dog, bites, man})   ← IDENTICAL!
 
-Without positional encoding: model sees {Dog, bites, man} — unordered set
-With positional encoding:    model sees [(Dog,pos=0), (bites,pos=1), (man,pos=2)]
+The model literally cannot distinguish these two sentences without position signals.
 ```
 
-Two types:
-- **Sinusoidal** (original paper): fixed mathematical formula, generalizes to any length
-- **Learned** (GPT, BERT): learned during training, simpler to implement
+**Three types you'll encounter in real code:**
 
-**Common misconception:** ❌ "Positional encoding is trivial — just add numbers" → ✅ It must be addable to token embeddings (same dimension), periodic to generalize across lengths, and not dominate the semantic signal. The sinusoidal design carefully balances these requirements.
+| Type | Used by | How it works |
+|---|---|---|
+| **Sinusoidal (absolute)** | Original Transformer (2017) | Fixed `sin/cos` of different frequencies — no learned params, generalizes to unseen lengths |
+| **Learned (absolute)** | BERT, GPT-2 | `nn.Embedding(max_len, d_model)` — one learnable vector per position |
+| **RoPE (rotary)** | LLaMA, Mistral, Qwen, most modern LLMs | Rotates Q and K vectors by an angle proportional to position — encodes *relative* distance, extrapolates better to longer contexts |
+
+> 💡 **Key Insight:** Modern LLMs (LLaMA, Mistral, GPT-NeoX) use **RoPE** instead of adding positional vectors. RoPE rotates the Q and K vectors inside attention itself, so the attention score between positions i and j depends only on their *relative* distance `(j - i)` — not their absolute positions. This is why context-window extension techniques (YaRN, NTK scaling) work on RoPE models.
+
+**Common misconception:** ❌ "Positional encoding is trivial — just add numbers" → ✅ It must be addable/compatible with token embeddings, encode order meaningfully for attention math, and ideally generalize to sequences longer than those seen during training. RoPE is the current best answer for long-context LLMs.
 
 ---
 

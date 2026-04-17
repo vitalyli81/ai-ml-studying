@@ -125,6 +125,58 @@ Just right (1e-5):  gentle adaptation → keep universal features, learn task-sp
 
 ---
 
+### LoRA & PEFT (Modern Fine-Tuning for LLMs)
+
+**One-line definition:** Instead of updating all billions of weights, freeze the base model and train small "adapter" matrices alongside it — same results, ~100× cheaper.
+
+**Analogy:** Instead of rewriting an entire 1000-page textbook (full fine-tuning), you add a 10-page sticky-note addendum (LoRA adapter). When reading, you consult both. The original book stays pristine.
+
+**The problem LoRA solves:** A 7B-param model has 28 GB of weights. Full fine-tuning needs ~4× that in GPU memory (weights + gradients + optimizer states) → 100+ GB. LoRA needs a tenth of that because you only train ~0.1% of parameters.
+
+```
+Full fine-tuning:        LoRA fine-tuning:
+W (frozen pretrained)    W (frozen pretrained)
+│                        │           
+│  update ALL 7B         │  + ΔW (where ΔW = A × B)
+│  params directly       │    A: [d, r=8]  ← tiny
+▼                        │    B: [r=8, d]  ← tiny
+W_new                    │  train A, B only (~0.1% of params)
+                         ▼
+                         W + A×B = effective fine-tuned weight
+```
+
+**Why it works:** Research (Hu et al., 2021) showed weight updates during fine-tuning have very low intrinsic rank — most of the useful "delta" can be represented as the product of two small matrices. Rank `r=8` or `r=16` is enough for most tasks.
+
+**Key benefits for an AI Engineer:**
+- **Memory**: fine-tune a 7B model on a single consumer GPU (24 GB)
+- **Storage**: a LoRA adapter is ~20 MB vs. 14 GB for the full model — ship one base model + N task-specific adapters
+- **No catastrophic forgetting**: base weights are frozen, so pretrained knowledge is preserved by design
+- **Composability**: swap adapters at inference to switch personas/tasks without reloading the base model
+
+**The ecosystem:**
+- **LoRA**: the original low-rank adaptation
+- **QLoRA**: LoRA + 4-bit quantized base model → fine-tune 70B models on a single 48 GB GPU
+- **Hugging Face PEFT** (`peft` library): the standard Python API — supports LoRA, QLoRA, prefix tuning, IA³, and more
+
+```python
+from peft import LoraConfig, get_peft_model
+
+config = LoraConfig(
+    r=8,                          # rank of update matrices
+    lora_alpha=16,                # scaling factor
+    target_modules=["q_proj", "v_proj"],   # which attention matrices to adapt
+    lora_dropout=0.05,
+    task_type="CAUSAL_LM",
+)
+model = get_peft_model(base_model, config)
+model.print_trainable_parameters()
+# trainable params: 4,194,304 || all params: 7,000,000,000 || trainable%: 0.06%
+```
+
+**Common misconception:** ❌ "LoRA is a compromise — full fine-tuning is always better" → ✅ On most downstream tasks, LoRA matches full fine-tuning performance within 1-2 points. The modern default for LLM fine-tuning is LoRA/QLoRA, not full fine-tuning.
+
+---
+
 ### Differential Learning Rates
 
 **One-line definition:** Use different (smaller) learning rates for earlier layers vs. later layers in the network.
@@ -358,10 +410,11 @@ trainer.train()
 5. Use early stopping — fine-tuning converges fast
 ```
 
-**Remember these 3 things:**
+**Remember these 4 things:**
 1. Always start from pretrained — training from scratch is almost never the right choice
 2. Learning rate must be small (1e-5 to 2e-5 for NLP, 1e-4 for vision fine-tuning)
 3. Train for only 2–10 epochs — fine-tuning converges fast and overfits quickly
+4. For LLMs, default to **LoRA/QLoRA** via Hugging Face `peft` — matches full fine-tuning quality at ~1% of the cost, and ships a 20 MB adapter instead of a 14 GB checkpoint
 
 ---
 

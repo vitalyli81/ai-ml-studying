@@ -343,6 +343,66 @@ async function reviewCode(diff: string) {
 
 ---
 
+## Debugging Prompts — The Workflow
+
+Most "the model is dumb" complaints are fixable prompt bugs. When output is wrong, walk this ladder — cheapest fix first.
+
+```
+1. READ THE OUTPUT LITERALLY
+   └─ The model did exactly what you asked. What did you actually ask?
+      Often: you asked a different question than you thought.
+
+2. LOOK AT THE RAW TOKENS
+   └─ Paste your prompt into tiktokenizer.vercel.app.
+      Are there hidden characters, truncations, or JSON escaping issues?
+
+3. REMOVE AMBIGUITY
+   └─ Every "it", "this", "that" — replace with a concrete noun.
+      "Summarize it" → "Summarize the article above, not the title."
+
+4. ADD AN EXAMPLE
+   └─ One well-chosen input→output example beats three paragraphs of
+      instructions. Few-shot > describing the format.
+
+5. SPLIT THE TASK
+   └─ If the prompt asks for 3 things, the model does 2 well and 1 badly.
+      Chain it: prompt 1 → prompt 2 → prompt 3.
+
+6. MOVE CRITICAL INSTRUCTIONS
+   └─ Put hard rules at the START of the system prompt AND remind at the end
+      of the user message. "Lost in the middle" is real.
+
+7. CHECK TEMPERATURE
+   └─ Creative output for a structured task? Drop temp to 0.
+      Robotic output when you wanted variety? Raise to 0.7.
+
+8. SWAP MODELS
+   └─ Only after steps 1–7. A better model masks prompt bugs — you'll
+      pay 10× forever instead of fixing the prompt once.
+
+9. CONSIDER FINE-TUNING
+   └─ Only if the task is high-volume, narrow, and prompt iteration has
+      plateaued. 99% of prompt problems never reach this step.
+```
+
+**The debugging prompt (paste this into Claude/GPT when stuck):**
+
+```
+Here's my prompt: [paste]
+Here's the input I gave it: [paste]
+Here's the output I got: [paste]
+Here's what I wanted: [describe]
+
+Tell me:
+1. What in my prompt caused the actual output?
+2. What specific edit would produce the wanted output?
+3. What ambiguity in my prompt could make this flaky across other inputs?
+```
+
+This meta-prompt routinely beats hours of manual iteration. The model reads its own outputs better than you do.
+
+---
+
 ## Advanced Techniques
 
 ### Prompt Chaining
