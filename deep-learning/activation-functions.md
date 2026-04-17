@@ -312,7 +312,7 @@ encoder_layer = nn.TransformerEncoderLayer(
 |---|---|---|---|
 | **ReLU** | max(0, x) | [0, ∞) | Hidden layers (default) |
 | **Leaky ReLU** | max(0.01x, x) | (-∞, ∞) | Dying ReLU fix |
-| **GELU** | x·Φ(x) | (-∞, ∞) | Transformers |
+| **GELU** | ≈ x · sigmoid(1.702x) | (-∞, ∞) | Transformers |
 | **Sigmoid** | 1/(1+e⁻ˣ) | (0, 1) | Binary output |
 | **Softmax** | eˣⁱ/Σeˣʲ | (0, 1), sums to 1 | Multi-class output |
 | **None (linear)** | x | (-∞, ∞) | Regression output |

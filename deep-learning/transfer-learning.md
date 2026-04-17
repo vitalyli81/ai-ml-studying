@@ -323,10 +323,13 @@ train_dataset = raw_dataset["train"].map(tokenize, batched=True)
 training_args = TrainingArguments(
     output_dir="./results",
     num_train_epochs=3,
-    learning_rate=2e-5,          # small LR — critical for fine-tuning
+    learning_rate=2e-5,               # small LR — critical for fine-tuning
     per_device_train_batch_size=16,
-    evaluation_strategy="epoch",
-    save_strategy="best",
+    eval_strategy="epoch",            # evaluate once per epoch
+    save_strategy="epoch",            # checkpoint once per epoch
+    load_best_model_at_end=True,      # at the end, reload the best checkpoint
+    metric_for_best_model="eval_loss",
+    greater_is_better=False,
 )
 
 trainer = Trainer(model=model, args=training_args,

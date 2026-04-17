@@ -45,19 +45,36 @@ Training accuracy: 75%     Validation accuracy: 73%   → HEALTHY (small gap)
 Training accuracy: 60%     Validation accuracy: 59%   → UNDERFIT (both low)
 ```
 
-**Diagnosis via loss curves:**
+**Diagnosis via loss curves** (solid = train, dashed = validation):
+
 ```
-Loss
-│╲  training loss      validation loss
-│  ╲_________                          ← underfit: both high
-│
-│╲
-│  ╲___  ← train      ╱ ← val rising  ← overfit: diverging
-│              ╲____╱
-│
-│╲
-│  ╲_______________  ← both converging ← healthy
-└────────────────── Epochs
+UNDERFIT — both losses plateau high, close together
+Loss │
+     │╲
+     │ ╲─────────── train
+     │ ╲┈┈┈┈┈┈┈┈┈┈┈ val
+     │
+     └────────────── Epochs
+
+
+HEALTHY — both drop together, small gap at the end
+Loss │
+     │╲
+     │ ╲
+     │  ╲___
+     │  ┈╲┈┈┈───── train (solid)
+     │      ┈┈┈┈┈┈ val   (dashed, just above train)
+     └────────────── Epochs
+
+
+OVERFIT — train keeps dropping, val turns upward
+Loss │
+     │╲
+     │ ╲         ┈┈┈┈ val (rising!)
+     │  ╲___ ┈┈┈┈
+     │      ╲___── train (still dropping)
+     └────────────── Epochs
+              ↑ best checkpoint is HERE (lowest val loss)
 ```
 
 **Common misconception:** ❌ "Zero training loss is the goal" → ✅ The goal is low validation loss. Training loss = 0 with high validation loss = completely overfit.

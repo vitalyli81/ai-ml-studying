@@ -111,16 +111,16 @@ app.use(predict)             // Output layer: final answer
 └─────────────────────────────────────────┘
 ```
 
-**The 4 lines of PyTorch that run every iteration:**
+**The 5 lines of PyTorch that run every iteration:**
 ```python
+optimizer.zero_grad()        # 0. clear leftover gradients from the last batch
 pred = model(x)              # 1. forward
 loss = loss_fn(pred, y)      # 2. measure error
 loss.backward()              # 3. compute gradient for every weight
 optimizer.step()             # 4. nudge each weight
-# (plus optimizer.zero_grad() before .backward() — see backpropagation.md)
 ```
 
-Memorize this. You'll write it every single time you train anything.
+Memorize this. You'll write it every single time you train anything. (Why `zero_grad` comes first: PyTorch *accumulates* gradients by default — skip it and every batch gets contaminated by the previous one. See `backpropagation.md`.)
 
 **Common misconception:** ❌ "The network randomly tries values until it works" → ✅ It follows the mathematical gradient — every weight gets a precise "change by this much in this direction" instruction, computed by backprop. No randomness, no guessing.
 

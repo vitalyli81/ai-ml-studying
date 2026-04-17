@@ -49,14 +49,16 @@ You ship minified JavaScript. An error fires at `bundle.js:1:34521`. Your source
 
 **One-line definition:** To find how a far-upstream change affects a downstream output, multiply all the local effects together.
 
-**Analogy:** Flour price affects bread cost affects sandwich cost. How much does flour affect sandwich price? Multiply the effects: (bread per flour) × (sandwich per bread).
+**Analogy:** Flour price affects bread cost affects sandwich cost. How much does flour affect sandwich price? Multiply the *rates* (not the dollar amounts): (Δbread / Δflour) × (Δsandwich / Δbread).
 
 ```
 flour → bread → sandwich
 
-flour↑$1 → bread↑$0.50 → sandwich↑$0.25
+If flour ↑ $1    → bread ↑ $0.50   then  Δbread / Δflour   = 0.5
+If bread ↑ $0.50 → sandwich ↑ $0.25 then  Δsandwich / Δbread = 0.5
 
-Effect of flour on sandwich = 0.50 × 0.25 = 0.125
+Effect of flour on sandwich = 0.5 × 0.5 = 0.25
+(i.e., $1 extra flour → $0.25 extra sandwich)
 ```
 
 In neural networks:

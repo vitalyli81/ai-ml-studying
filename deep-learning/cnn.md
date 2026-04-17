@@ -39,14 +39,30 @@ A car factory QA line has different cameras: one checks for dents, one checks pa
 
 **Analogy:** A magnifying glass with a pattern template — you slide it across the image and wherever the template matches, the score is high.
 
-**Technical explanation:** A 3×3 filter slides across the image with a stride of 1. At each position, multiply filter values by image values and sum — this produces one number in the output feature map.
+**Technical explanation:** A 3×3 filter slides across the image with a stride of 1. At each position, multiply filter values by image values element-wise and sum all 9 products — this produces **one number** in the output feature map.
 
 ```
-Image patch:    Filter (edge detector):    Dot product:
-1  0  1         1  0  -1                   1×1 + 0×0 + 1×(-1)
-0  1  0    ×    0  0   0         =         0×0 + 1×0 + 0×0
-1  0  1        -1  0   1                   1×(-1) + 0×0 + 1×1  = 0
+Image patch:     Filter (diagonal-edge detector):
+1  0  1          1  0  -1
+0  1  0    ⊙     0  0   0     (⊙ = element-wise multiply)
+1  0  1         -1  0   1
+
+Step 1 — element-wise multiply:
+  (1·1) + (0·0) + (1·-1)     =  1 + 0 - 1  =  0
++ (0·0) + (1·0) + (0·0)      =  0 + 0 + 0  =  0
++ (1·-1) + (0·0) + (1·1)     = -1 + 0 + 1  =  0
+
+Step 2 — sum them all  →  output pixel = 0
+(This patch is symmetric, so a diagonal-edge filter produces zero —
+ exactly what we want: no diagonal edge here.)
 ```
+
+> 💡 **Output size formula:** For an input of spatial size `W`, kernel `K`, padding `P`, stride `S`:
+> `output_size = ⌊(W - K + 2P) / S⌋ + 1`
+>
+> Common setup: `K=3, P=1, S=1` → output same size as input ("same" padding).
+> `K=3, P=0, S=1` → output shrinks by 2 per side.
+> `K=3, P=1, S=2` → output halves (downsampling via stride).
 
 **Common misconception:** ❌ "The filters are handcrafted" → ✅ The filter values (weights) are *learned* during training via backpropagation, just like any other weights.
 
