@@ -65,6 +65,8 @@ I-MISC  = inside miscellaneous entity
 
 **Common misconception:** ❌ "Each word gets one label" → ✅ Each subword *token* gets a label. "New York" is two words but might tokenize into `["New", "York"]` or `["New", "Y", "##ork"]`. NER pipelines merge subword tokens back into word-level entities.
 
+> 💡 **Why this matters for fine-tuning:** Your labels are at the word level (`"New York" → B-LOC I-LOC`), but the model sees subword tokens. You must align them — typically: label the **first** subword of each word with the real tag, and set continuation subwords to `-100` (a special value that PyTorch's cross-entropy loss ignores). Search for "word_ids() NER alignment" in the HF docs — that's the canonical pattern.
+
 ---
 
 ### Token-Level Classification

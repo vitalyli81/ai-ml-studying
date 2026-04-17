@@ -380,12 +380,12 @@ jobs:
         run: |
           python scripts/evaluate.py \
             --candidate ${{ steps.train.outputs.model_path }} \
-            --baseline "models:/sentiment/Production" \
+            --baseline "models:/sentiment@production" \
             --min-improvement 0.005  # Must be at least 0.5% better
       
       - name: Register model
         if: success()
-        run: python scripts/register_model.py --stage Staging
+        run: python scripts/register_model.py --alias staging
 
   deploy-to-staging:
     needs: train-and-evaluate
@@ -444,9 +444,17 @@ def train(config=None):
                 "val/accuracy": val_accuracy,
             })
             
-            # Save checkpoint every 5 epochs
+            # Save checkpoint every 5 epochs as a versioned artifact
             if epoch % 5 == 0:
-                wandb.log_model(model, name=f"checkpoint-epoch-{epoch}")
+                ckpt = wandb.Artifact(
+                    f"sentiment-checkpoint",
+                    type="model",
+                    metadata={"epoch": epoch, "val_accuracy": val_accuracy},
+                )
+                # Persist the model file on disk first, then attach to the artifact
+                save_model(model, f"checkpoint-epoch-{epoch}.pkl")
+                ckpt.add_file(f"checkpoint-epoch-{epoch}.pkl")
+                run.log_artifact(ckpt)
         
         # Final evaluation
         final_report = classification_report(y_val, val_preds, output_dict=True)

@@ -282,7 +282,7 @@ import anthropic
 client = anthropic.Anthropic()
 
 message = client.messages.create(
-    model="claude-sonnet-4-5",
+    model="claude-sonnet-4-6",
     max_tokens=1024,
     messages=[
         {"role": "user", "content": "Explain attention mechanisms in 3 sentences."}
@@ -373,11 +373,13 @@ print(classify_support_ticket("My payment didn't go through"))  # → billing
 
 | Model | Creator | Params | Access | Best For |
 |---|---|---|---|---|
-| **GPT-4o** | OpenAI | ~200B | API | Best quality, general use |
-| **Claude Sonnet** | Anthropic | ~70B | API | Reasoning, long context |
-| **Llama 3 70B** | Meta | 70B | Open | Self-hosted, customization |
-| **Mistral 7B** | Mistral | 7B | Open | Fast, cheap, good quality |
+| **GPT-4o / GPT-5** | OpenAI | undisclosed | API | Best quality, general use |
+| **Claude Opus / Sonnet** | Anthropic | undisclosed | API | Reasoning, long context, coding |
+| **Llama 3.x 70B** | Meta | 70B | Open | Self-hosted, customization |
+| **Mistral / Mixtral** | Mistral | 7B–8x22B | Open | Fast, cheap, good quality |
 | **GPT-2** | OpenAI | 1.5B | Open | Learning, experimentation |
+
+> Frontier labs (OpenAI, Anthropic, Google) don't publish parameter counts for their best models anymore — treat any "~XB" number you see online as a rumor, not a fact.
 
 **Generation parameters:**
 ```python

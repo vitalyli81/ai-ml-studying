@@ -171,36 +171,41 @@ curl -X POST http://localhost:8000/predict \
 
 **Analogy:** It's like code splitting and tree-shaking in webpack — you're removing the parts you don't need and compressing what's left so it loads faster.
 
-**The main techniques:**
+**The main techniques (rough ranges — always benchmark on your own model):**
 
 ```
-Technique          What It Does                      Speedup   Accuracy Loss
-─────────────────────────────────────────────────────────────────────────────
-Quantization       Compress weights (FP32 → INT8)    2-4×      Minimal
-Pruning            Remove unimportant weights         2-10×     Small
-Knowledge Distill. Train smaller model to mimic big  5-10×     Moderate
-ONNX export        Convert to faster runtime format  1.5-3×    None
-TensorRT           GPU-optimized inference            3-10×     Minimal
+Technique          What It Does                        Typical speedup   Accuracy impact
+──────────────────────────────────────────────────────────────────────────────────────
+Quantization       Lower-precision weights             1.5-4×            Small (<1-2%)
+  (FP32→FP16/INT8/INT4)
+Pruning            Zero out low-magnitude weights      1.5-3×            Small to moderate
+Knowledge distill. Train a smaller student model       3-10× (smaller)   Moderate
+ONNX Runtime       Portable optimized runtime          1.2-2×            None
+TensorRT / vLLM    GPU-native inference                2-10×             None to small
+Batching           Group many requests per GPU call    2-20× throughput  None
 ```
+
+> ⚠️ **Numbers vary a lot.** A 7B LLM on an A100 behaves very differently from a BERT classifier on CPU. Use these as "expect *some* of this range" — not as a promise.
 
 ```python
-# Example: Quantization with PyTorch
+# Example: dynamic quantization with PyTorch (CPU, for Linear layers)
 import torch
+from torch.ao.quantization import quantize_dynamic  # modern API
 
-# Original model: 400MB, runs in 50ms
-model = MyModel()
+model = MyModel().eval()
 
-# Quantize to INT8: 100MB, runs in 15ms
-quantized_model = torch.quantization.quantize_dynamic(
+# Quantize Linear layers to INT8 — good for CPU inference on Transformer-style nets
+quantized_model = quantize_dynamic(
     model,
-    {torch.nn.Linear},  # Which layers to quantize
-    dtype=torch.qint8
+    {torch.nn.Linear},
+    dtype=torch.qint8,
 )
 
-# Same accuracy, 4× smaller, 3× faster
+# For LLMs, you almost never hand-roll quantization — use GPTQ/AWQ/bitsandbytes
+# via libraries (transformers, vLLM, llama.cpp) which handle calibration for you.
 ```
 
-**Common misconception:** You always need to optimize. Wrong — start with correctness, then measure performance. Premature optimization wastes time. Only optimize if latency or cost is actually a problem.
+**Common misconception:** You always need to optimize. Wrong — start with correctness, then measure. For LLMs, the biggest single win is usually **switching from naive HuggingFace+FastAPI to vLLM/TGI** (see §5), not hand-tuning quantization. For classical models, **batching** often beats everything else.
 
 ---
 
@@ -457,8 +462,14 @@ gcloud run deploy sentiment-api \
 ✅ Log only hashed inputs, metadata, and output categories
 
 ❌ No timeout on model inference
-   One slow request blocks the thread forever
-✅ Set inference timeout: asyncio.wait_for(predict(...), timeout=10.0)
+   One slow request blocks the worker forever
+✅ Cap it at every layer:
+   - SDK / HTTP client timeout on any outbound call
+   - Uvicorn/Gunicorn worker timeout
+   - For async code that awaits I/O: asyncio.wait_for(coro, timeout=10.0)
+   - For sync CPU-bound inference: run it in a threadpool and apply the timeout
+     there, OR enforce at the worker level — asyncio.wait_for can't actually
+     cancel a blocking synchronous call mid-flight.
 
 ❌ One giant container with everything
    8GB image, 5-minute startup time

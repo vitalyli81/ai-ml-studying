@@ -93,10 +93,10 @@ async def serve(user_msg: str, user_id: str):
     b_task = asyncio.create_task(variant_b(user_msg))
     a = await a_task
     try:
-        b = await asyncio.wait_for(b_task, timeout=5.0)
+        b = await asyncio.wait_for(asyncio.shield(b_task), timeout=5.0)
         log_shadow(user_id, user_msg, a, b)
     except asyncio.TimeoutError:
-        pass
+        b_task.cancel()  # don't let a slow B leak resources after we give up
     return a
 ```
 
@@ -241,13 +241,14 @@ async def serve_with_shadow(user_msg: str, user_id: str) -> str:
     b = asyncio.create_task(call_variant_b(user_msg))
     a_result = await a
     try:
-        b_result = await asyncio.wait_for(b, timeout=10.0)
+        b_result = await asyncio.wait_for(asyncio.shield(b), timeout=10.0)
         logging.info("shadow", extra={
             "user_id": user_id, "input": user_msg,
             "a": a_result, "b": b_result,
             # downstream: LLM-judge scores this pair offline
         })
     except asyncio.TimeoutError:
+        b.cancel()  # stop B if it's still running — don't burn tokens on a dropped shadow
         logging.warning("shadow b timed out")
     return a_result  # user sees A only
 ```

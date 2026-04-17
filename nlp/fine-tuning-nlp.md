@@ -117,19 +117,28 @@ Is it a generation task or requires a large model (7B+)?
 
 ```
 Full fine-tuning:
-  7B model × 4 bytes/param = 28GB for weights
-  + optimizer states = 80GB+ total
-  Result: expensive, needs big GPU
+  7B model × 2 bytes/param (fp16) = 14GB just for weights
+  + gradients (14GB) + Adam optimizer states (28GB) ≈ 60–80GB total
+  Result: expensive, needs an A100/H100
 
-LoRA fine-tuning:
-  7B parameters FROZEN (no gradients needed)
-  + add tiny matrices A and B at each attention layer:
-    Original W: [4096 × 4096] = 16M params
-    LoRA A:     [4096 × 8]    = 32K params  (down-project to rank r)
-    LoRA B:     [8 × 4096]    = 32K params  (up-project back)
-  Train only A and B: 64K params vs 16M = 0.4% of original
-  Total trainable params: ~4M out of 7B = 0.05%
-  GPU needed: 8-16GB instead of 80GB+
+LoRA fine-tuning (rank r=8):
+  All 7B parameters FROZEN — no gradients, no optimizer state for them.
+  At each targeted attention matrix W of shape [d × d]:
+    Freeze W (keep pretrained weights)
+    Add two tiny trainable matrices:
+      A: [d × r]   (down-project to rank r)
+      B: [r × d]   (up-project back to d)
+    Effective update: ΔW = B·A   (same shape as W, but rank-r)
+
+  Concrete numbers for one Llama attention matrix with d=4096, r=8:
+    Original W:  4096 × 4096 = 16.8M params  (frozen)
+    LoRA A:      4096 × 8    = 32.8K params  (trainable)
+    LoRA B:      8 × 4096    = 32.8K params  (trainable)
+    Per-matrix trainable: ~66K vs 16.8M → 0.4% of that one matrix
+
+  Summed across the ~32 layers × (q_proj, v_proj) you typically target:
+    Total trainable: ~4M params out of 7B = ~0.05% of the whole model
+    GPU needed: 8–16GB instead of 60–80GB+
 ```
 
 **How it works at inference:**
@@ -295,7 +304,7 @@ trainer = Trainer(
         per_device_train_batch_size=16,
         learning_rate=2e-5,        # ← always small for fine-tuning
         weight_decay=0.01,
-        evaluation_strategy="epoch",
+        eval_strategy="epoch",   # renamed from evaluation_strategy in transformers 4.41+
         save_strategy="epoch",
         load_best_model_at_end=True,
     ),
@@ -444,7 +453,7 @@ learning_rate             = 2e-5      ← never higher than 5e-5
 num_train_epochs          = 3         ← start here, add if val loss still falling
 per_device_train_batch_size = 16      ← reduce if OOM
 weight_decay              = 0.01      ← L2 regularization
-evaluation_strategy       = "epoch"   ← always monitor val performance
+eval_strategy             = "epoch"   ← always monitor val performance (was evaluation_strategy pre-4.41)
 load_best_model_at_end    = True      ← don't use the last checkpoint
 ```
 

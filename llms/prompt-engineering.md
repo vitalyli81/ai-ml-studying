@@ -265,7 +265,7 @@ const anthropic = new Anthropic();
 
 async function classify(text: string): Promise<string> {
   const response = await anthropic.messages.create({
-    model: 'claude-haiku-4-5-20251001',  // Cheapest — simple task
+    model: 'claude-haiku-4-5',  // Cheapest — simple task
     max_tokens: 10,
     messages: [{
       role: 'user',
@@ -286,7 +286,7 @@ await classify("The food was great but the service was slow");
 ```typescript
 async function extractJobInfo(posting: string) {
   const response = await anthropic.messages.create({
-    model: 'claude-sonnet-4-5-20241022',
+    model: 'claude-sonnet-4-6',
     max_tokens: 512,
     system: 'Extract structured data from job postings. Return valid JSON only. No explanation.',
     messages: [{
@@ -331,7 +331,7 @@ Output format (JSON, nothing else):
 
 async function reviewCode(diff: string) {
   const response = await anthropic.messages.create({
-    model: 'claude-sonnet-4-5-20241022',
+    model: 'claude-sonnet-4-6',
     max_tokens: 1024,
     system: CODE_REVIEWER_SYSTEM,
     messages: [{ role: 'user', content: diff }]

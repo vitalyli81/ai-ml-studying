@@ -157,20 +157,28 @@ Start with r=16. Increase only if quality is insufficient.
 
 ### 4. QLoRA (Quantized LoRA)
 
-**Plain English:** QLoRA = LoRA + compressed base model. The frozen base model is quantized to 4-bit (from 16-bit), making it 4× smaller. The LoRA adapters stay in full precision. Result: fine-tune a 70B model on a single consumer GPU.
+**Plain English:** QLoRA = LoRA + compressed base model. The frozen base model is quantized to 4-bit (from 16-bit), making it ~4× smaller in memory. The LoRA adapters stay in higher precision. Result: fine-tune large models on a single GPU that wouldn't otherwise fit.
 
-**Analogy:** A high-quality JPEG instead of a RAW photo. The image looks almost identical, but the file is 4× smaller. You edit the JPEG with full-resolution brushes (LoRA in FP16) — the compressed base is the canvas, your edits are precise.
+**Analogy:** A high-quality JPEG instead of a RAW photo. The image looks almost identical, but the file is much smaller. You edit the JPEG with full-resolution brushes (LoRA adapters in BF16) — the compressed base is the canvas, your edits are precise.
 
 ```
-Memory for Llama 3 70B:
+Rough memory budgets (weights + activations + LoRA grads + optimizer state):
 
-Full fine-tuning:  ~600 GB  (8× A100 80GB)   — enterprise only
-LoRA (FP16):       ~160 GB  (2× A100 80GB)   — team GPU server
-QLoRA (4-bit):     ~24 GB   (1× RTX 4090)    ← consumer GPU!
+Model size │ Full FT (BF16) │ LoRA (BF16)    │ QLoRA (4-bit base)
+───────────┼────────────────┼────────────────┼────────────────────
+  8B       │  ~160 GB       │  ~24 GB        │  ~10–12 GB  (1× 16GB)
+ 13B       │  ~260 GB       │  ~40 GB        │  ~14–18 GB  (1× 24GB)
+ 70B       │ ~1,400 GB      │  ~160 GB       │  ~46–48 GB  (1× 48GB)
 
-Cost comparison (renting GPUs for 4 hours):
-Full FT:  8× A100 = ~$80/hour → $320
-QLoRA:    1× RTX 4090 = ~$0.50/hour → $2
+  → 70B QLoRA realistically needs an A6000/A100 (48GB), not a 24GB RTX 4090.
+  → The original QLoRA paper fine-tuned 65B on a single 48GB GPU.
+  → 24GB is enough for 7B–13B QLoRA, which is already huge.
+```
+
+**Cost comparison (renting GPUs for 4 hours to tune a 13B model):**
+```
+Full FT:  4× A100 80GB ≈ $40/hr → $160
+QLoRA:    1× RTX 4090 24GB ≈ $0.50/hr → $2
 ```
 
 ```javascript
@@ -578,11 +586,11 @@ The model will overfit badly. High rank (r=256) gives the LoRA matrices enormous
 Catastrophic forgetting: fine-tuning on a narrow domain caused the model to lose general capabilities. Fix: retrain with a mix of your domain data (90%) and general instruction data (10%). This preserves general capabilities while learning your specific task. Tools like Alpaca dataset or the base model's original instruction data work well for the general portion.
 </details>
 
-4. **How does QLoRA enable fine-tuning a 70B model on a single GPU that only has 24GB RAM?**
+4. **How does QLoRA dramatically cut the GPU memory needed to fine-tune large models?**
 
 <details>
 <summary>Answer</summary>
-Two key tricks: (1) Quantize the frozen base model to 4-bit (from 16-bit) — a 70B model in FP16 needs 140GB; in 4-bit it needs ~35GB. (2) Use a special 4-bit format (NF4) with double quantization that gets it to ~24GB. The LoRA adapters stay in full precision (FP16) but are tiny (~131K params vs 70B base). Gradients only flow through the LoRA layers, so you never need to store gradients for the full 70B params.
+Three key tricks from the QLoRA paper: (1) Quantize the frozen base model to 4-bit using **NF4** (a data-type optimized for normally-distributed weights) — a 70B model drops from ~140GB (BF16) to ~35GB. (2) **Double quantization** — quantize the quantization constants themselves, saving a bit more. (3) **Paged optimizers** — spill optimizer state to CPU when it would OOM the GPU. Because gradients only flow through the tiny LoRA adapters, you never store full-model gradients or optimizer state. Net effect: 70B fits on a single 48GB GPU; 7–13B fits on a 24GB consumer card.
 </details>
 
 5. **Your fine-tuned model performs worse than the base model on your task. What do you debug first?**

@@ -56,8 +56,11 @@ They've read the entire internet, every book, every code repo. They can't look t
 // As an AI engineer, tokens = cost + speed + limits
 
 const cost = (inputTokens * inputPrice) + (outputTokens * outputPrice);
-// Claude Sonnet: ~$3/M input, ~$15/M output tokens
-// GPT-4o: ~$5/M input, ~$15/M output tokens
+// Prices change — always check the provider's pricing page.
+// Ballpark as of 2026:
+//   Claude Haiku:  ~$1/M input,   ~$5/M output
+//   Claude Sonnet: ~$3/M input,   ~$15/M output
+//   Claude Opus:   ~$15/M input,  ~$75/M output
 
 // Context Window — max tokens the model can "see"
 // Claude:  200K tokens ≈ 150,000 words ≈ ~500 pages
@@ -77,11 +80,14 @@ const cost = (inputTokens * inputPrice) + (outputTokens * outputPrice);
 **Technical explanation:** Parameters are weight values in the neural network's matrices. When you multiply the input (your prompt as numbers) through these matrices, you get the output (the next token probabilities).
 
 ```
-GPT-3:   175 billion parameters (2020)
-GPT-4:   ~1.8 trillion parameters (2023, mixture of experts)
-Llama 3: 8B, 70B, 405B parameter variants
-Claude:  Not disclosed, likely 100B–1T+
+GPT-3:   175 billion parameters (2020, dense)
+GPT-4:   Not disclosed — widely rumored ~1.8T total via mixture-of-experts,
+         ~280B active per token. Treat exact numbers as speculation.
+Llama 3: 8B, 70B, 405B parameter variants (dense, open weights)
+Claude:  Not disclosed
 ```
+
+> **Sidebar — Dense vs. MoE:** A "dense" model activates all parameters for every token. A **Mixture of Experts (MoE)** model has many "expert" sub-networks and routes each token through only a few of them — total params are huge, but compute per token stays cheap. GPT-4, Mixtral, and DeepSeek-V3 are MoE; Llama 3 is dense.
 
 **Common misconception:** More parameters always = better. In practice, a well-trained smaller model (e.g., Llama 3 8B) often beats a poorly-trained larger one on specific tasks.
 
@@ -271,20 +277,26 @@ Before architectures, understand this one mechanism. Everything else is scaffold
 ```
 Generating the next token for:  "The cat sat on the ___"
 
-For each previous token, the model computes 3 vectors:
+For each token, the model computes 3 vectors:
   Query  (Q) — "what am I looking for right now?"
   Key    (K) — "what do I offer?"
   Value  (V) — "what information do I carry?"
 
-Attention score(i, j) = how well token i's Query matches token j's Key
-                      = softmax( Q_i · K_j / √d )
+Raw score for token i looking at token j:
+  s(i, j) = Q_i · K_j / √d              (dot product, scaled by √d for stability)
 
-Next-token representation = Σ (attention_score × V_j) over all j
+Turn the row of scores into weights that sum to 1:
+  attention(i, :) = softmax( [s(i, 1), s(i, 2), ..., s(i, n)] )
+
+New representation of token i = Σ_j attention(i, j) × V_j
 
 Intuitively for predicting the word after "on the":
   - "sat"  → high attention (tells us something is seated)
   - "cat"  → high attention (the subject — "on the mat"? "on the chair"?)
   - "The"  → low attention (not semantically useful here)
+
+Note: In decoder-only models (GPT/Claude/Llama), a **causal mask** prevents
+attending to future tokens — position i can only see positions ≤ i.
 ```
 
 **Why this was the breakthrough (vs. RNNs):**
@@ -374,29 +386,45 @@ Safety approach RLHF            Constitutional  Community
 
 ## Scaling Laws
 
-**Model performance improves predictably** as you scale parameters, data, and compute. This is the most important empirical finding in modern AI.
+**Model performance improves predictably** as you scale parameters, data, and compute. This is the most important empirical finding in modern AI — and the reason frontier labs spend hundreds of millions on single training runs.
+
+### The law (in one line)
+
+Loss on held-out text falls as a **power law** in three knobs: parameter count **N**, training tokens **D**, and compute **C**. Double any one (holding others fixed, within bounds) and loss drops by a predictable amount.
 
 ```
-Performance ∝ f(Parameters × Data × Compute)
-
-Each variable follows a power law:
-  10× more params   → consistent improvement
-  10× more data     → consistent improvement
-  10× more compute  → consistent improvement
-```
-
-```
-             Performance
+             Test loss (lower = better)
                  ▲
-                 │        ╱
-                 │      ╱
-                 │    ╱       ← Smooth, predictable (power law)
-                 │  ╱
-                 │╱
-                 └──────────► Scale
+                 │╲
+                 │ ╲
+                 │  ╲___        ← Power law: log(loss) ∝ -log(scale)
+                 │      ╲___
+                 │           ╲___
+                 └────────────────► log(Parameters or Data or Compute)
 ```
 
-**But there are diminishing returns.** GPT-4 cost ~100× more compute than GPT-3 but isn't 100× better. This is why RAG, agents, and fine-tuning matter — they're smarter than just making bigger models.
+### The two landmark papers (worth knowing by name)
+
+| Paper | Year | Key finding |
+|-------|------|-------------|
+| **Kaplan et al. ("Scaling Laws")** | 2020 | Loss follows smooth power laws in N, D, C. Bigger seemed better. |
+| **Hoffmann et al. ("Chinchilla")** | 2022 | GPT-3-era models were **undertrained** — for a fixed compute budget, you should roughly balance parameters and tokens (~20 tokens per parameter). |
+
+Chinchilla's correction is the practical one: you can't just make a model bigger; you have to feed it proportionally more data. A 70B model trained on 300B tokens is wasted — it wants ~1.4T tokens.
+
+### Why this matters for you as an AI Engineer
+
+You won't train a frontier model. But scaling laws drive the decisions you *do* make:
+
+1. **Why new models keep getting better** — labs are moving along a known curve, not hoping for miracles. Plan roadmaps assuming frontier capabilities continue to improve ~yearly.
+2. **Why smaller models keep catching up** — better data and training recipes (Llama 3, Phi, Gemma) push the same capability down to smaller sizes. The cheap model this year ≈ the frontier model two years ago. Rerun your model-selection evals every ~6 months.
+3. **Why "just use the biggest model" is lazy** — returns diminish sharply. A task that Haiku solves at 95% doesn't need Opus at 96% for 60× the cost.
+4. **Why RAG / agents / fine-tuning matter** — they're *orthogonal* axes of improvement. Stacking a smart pipeline on a mid-tier model often beats a naive call to a flagship one.
+
+### Common misconception
+
+❌ "Scaling laws guarantee we'll get AGI by making bigger models."
+✅ The laws describe **loss on next-token prediction**, not capability in the real world. Emergent abilities, reasoning quality, and usefulness don't follow the same clean curve — and data is finite. Scaling is *necessary* for progress, not sufficient.
 
 ---
 

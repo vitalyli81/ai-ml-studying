@@ -261,7 +261,8 @@ trainer = Trainer(
         num_train_epochs=3,
         per_device_train_batch_size=16,
         learning_rate=2e-5,          # small LR — preserve pretrained knowledge
-        evaluation_strategy="epoch",
+        eval_strategy="epoch",       # renamed from evaluation_strategy in transformers 4.41+
+        save_strategy="epoch",       # must match eval_strategy for load_best_model_at_end
         load_best_model_at_end=True,
     ),
     train_dataset=dataset["train"],

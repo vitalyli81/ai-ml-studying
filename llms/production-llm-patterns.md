@@ -396,6 +396,9 @@ class Chat:
         return count.input_tokens < MAX_INPUT
 
     def _trim(self) -> list[dict]:
+        # Note: count_tokens is itself an API call, so in production you'd
+        # cache per-message counts (content is immutable once appended) and
+        # only re-count when history changes — not on every trim iteration.
         msgs = list(self.history)
         while msgs and not self._fits(msgs):
             msgs = msgs[2:]  # drop oldest user+assistant pair

@@ -51,7 +51,7 @@ const users = await response.json();
 
 // LLM API is the same pattern:
 const response = await anthropic.messages.create({
-  model: 'claude-sonnet-4-5-20241022',
+  model: 'claude-sonnet-4-6',
   max_tokens: 1024,
   messages: [
     { role: 'user', content: 'What is React?' },
@@ -99,7 +99,7 @@ With streaming:
 ```typescript
 // Without streaming (bad UX for chat):
 const response = await anthropic.messages.create({
-  model: 'claude-sonnet-4-5-20241022',
+  model: 'claude-sonnet-4-6',
   max_tokens: 1024,
   messages: [{ role: 'user', content: 'Explain React hooks.' }],
 });
@@ -107,7 +107,7 @@ console.log(response.content[0].text);  // appears all at once after 5s
 
 // With streaming (great UX):
 const stream = anthropic.messages.stream({
-  model: 'claude-sonnet-4-5-20241022',
+  model: 'claude-sonnet-4-6',
   max_tokens: 1024,
   messages: [{ role: 'user', content: 'Explain React hooks.' }],
 });
@@ -136,7 +136,7 @@ const final = await stream.finalMessage();  // complete message when done
 
 // Structured output via tool_choice (guaranteed):
 const response = await anthropic.messages.create({
-  model: 'claude-sonnet-4-5-20241022',
+  model: 'claude-sonnet-4-6',
   max_tokens: 512,
   tools: [{
     name: 'extract_contact',
@@ -175,7 +175,7 @@ const result = response.content[0].input;
 // With caching: 200K tokens cached once + 100 × small query tokens = ~$6
 
 const response = await anthropic.messages.create({
-  model: 'claude-sonnet-4-5-20241022',
+  model: 'claude-sonnet-4-6',
   max_tokens: 1024,
   system: [
     {
@@ -231,7 +231,7 @@ import Anthropic from '@anthropic-ai/sdk';
 const anthropic = new Anthropic();  // uses ANTHROPIC_API_KEY env var
 
 const response = await anthropic.messages.create({
-  model: 'claude-sonnet-4-5-20241022',
+  model: 'claude-sonnet-4-6',
   max_tokens: 1024,
   messages: [{ role: 'user', content: 'Explain React hooks in 3 sentences.' }]
 });
@@ -249,7 +249,7 @@ const messages = [
 ];
 
 const response = await anthropic.messages.create({
-  model: 'claude-sonnet-4-5-20241022',
+  model: 'claude-sonnet-4-6',
   max_tokens: 1024,
   system: 'You are a helpful coding assistant. Be concise.',
   messages,
@@ -270,7 +270,7 @@ export async function POST(req: Request) {
   const { messages } = await req.json();
 
   const stream = await anthropic.messages.stream({
-    model: 'claude-sonnet-4-5-20241022',
+    model: 'claude-sonnet-4-6',
     max_tokens: 2048,
     system: 'You are a helpful coding assistant.',
     messages,
@@ -329,7 +329,7 @@ import { streamText } from 'ai';
 export async function POST(req: Request) {
   const { messages } = await req.json();
   const result = streamText({
-    model: anthropic('claude-sonnet-4-5-20241022'),
+    model: anthropic('claude-sonnet-4-6'),
     system: 'You are a helpful coding assistant.',
     messages,
   });
@@ -400,7 +400,7 @@ console.log(response.choices[0].message.content);
 async function safeLLMCall(prompt: string): Promise<string | null> {
   try {
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5-20241022',
+      model: 'claude-sonnet-4-6',
       max_tokens: 1024,
       messages: [{ role: 'user', content: prompt }],
     });
@@ -439,7 +439,7 @@ cache_control: { type: 'ephemeral' }  // on static system prompts / docs
 const batch = await anthropic.messages.batches.create({
   requests: prompts.map(p => ({
     custom_id: p.id,
-    params: { model: 'claude-haiku-4-5-20251001', max_tokens: 100, messages: [{ role: 'user', content: p.text }] }
+    params: { model: 'claude-haiku-4-5', max_tokens: 100, messages: [{ role: 'user', content: p.text }] }
   }))
 });
 ```

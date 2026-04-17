@@ -91,33 +91,24 @@ Online Monitoring:
 
 **Analogy:** Like code test coverage — a number that gives you confidence without requiring you to manually read every output.
 
-```
-The main LLM metrics:
+| Metric | What it measures | How it's computed |
+|---|---|---|
+| **Exact Match** | Is the answer word-for-word correct? | String compare |
+| **ROUGE-L** | Word overlap with a reference answer | Longest common subsequence |
+| **BERTScore** | Semantic similarity (not just word overlap) | Cosine similarity of token embeddings |
+| **LLM-as-Judge** | Quality dimensions — accuracy, helpfulness, groundedness | Another LLM scores the output against a rubric |
+| **Hallucination Rate** | Claims not supported by the provided context | Grounding check or LLM judge |
+| **Toxicity / Safety** | Harmful content in output | Classifier (Llama Guard, OpenAI Moderation, Perspective) |
 
-┌─────────────────────────────────────────────────────────────────────┐
-│ METRIC          │ WHAT IT MEASURES              │ HOW              │
-├─────────────────────────────────────────────────────────────────────┤
-│ Exact Match     │ Is the answer word-for-word    │ string compare   │
-│                 │ correct?                        │                  │
-├─────────────────────────────────────────────────────────────────────┤
-│ ROUGE-L         │ How much word overlap between  │ longest common   │
-│                 │ output and reference?           │ subsequence      │
-├─────────────────────────────────────────────────────────────────────┤
-│ BERTScore       │ Semantic similarity (not just  │ embedding         │
-│                 │ word overlap)                  │ cosine sim       │
-├─────────────────────────────────────────────────────────────────────┤
-│ LLM-as-Judge    │ Quality rating by another LLM  │ GPT-4/Claude     │
-│                 │ (correctness, helpfulness)      │ grades the output│
-├─────────────────────────────────────────────────────────────────────┤
-│ Hallucination   │ Does output contain facts not  │ grounding check  │
-│ Rate            │ in the context?                │ or LLM judge     │
-├─────────────────────────────────────────────────────────────────────┤
-│ Toxicity        │ Does output contain harmful    │ classifier model │
-│                 │ content?                        │                  │
-└─────────────────────────────────────────────────────────────────────┘
-```
+**Which to use when:**
 
-**Common misconception:** ROUGE is the gold standard. It was designed for summarization. For open-ended generation, LLM-as-judge is far more meaningful.
+- **Exact match / F1** — only when there's one right answer (classification, entity extraction).
+- **ROUGE / BLEU** — legacy summarization/translation baselines. Weak for modern LLM output; report alongside, not as primary.
+- **BERTScore** — semantic similarity to a reference answer. Good when you have golden answers.
+- **LLM-as-judge** — the default for open-ended generation, and for "did the output follow my rubric?"
+- **RAGAS-style metrics** — when the system is a RAG pipeline (see §4).
+
+**Common misconception:** ROUGE is the gold standard. It was designed for news-summary overlap. "The cat sat." vs. "A feline was seated." score near zero on ROUGE despite meaning the same thing. For open-ended generation, **LLM-as-judge or BERTScore correlate much better with what users actually care about**.
 
 ---
 
@@ -154,7 +145,15 @@ avg_accuracy = sum(s["accuracy"] for s in scores) / len(scores)
 print(f"Average accuracy: {avg_accuracy:.2f}/5")
 ```
 
-**Common misconception:** LLM-as-judge is subjective and unreliable. Studies show GPT-4 and Claude agree with human evaluators ~80-90% of the time on most dimensions — comparable to human inter-rater agreement.
+**Common misconception:** LLM-as-judge is subjective and unreliable. On well-defined rubrics, strong judge models reach **~70-85% agreement with humans** on most dimensions — in the range of human inter-rater agreement for subjective tasks. It's good enough to use in CI/CD, as long as you know the failure modes:
+
+**Judge biases you must design around:**
+- **Position bias** — judges tend to prefer the first option shown in pairwise comparisons. → Randomize A/B order; score each pair twice with swapped order.
+- **Verbosity bias** — longer answers often win regardless of quality. → Include "penalize verbosity when it doesn't add value" in the rubric.
+- **Self-preference** — a judge model tends to prefer outputs from its own family (GPT-4 prefers GPT-4 output). → Use a different model family as judge when possible.
+- **Style over substance** — well-formatted wrong answers can beat terse correct ones. → Separate "correctness" from "style" dimensions in the rubric.
+
+**Always validate the judge against a small human-labeled sample before trusting it at scale.**
 
 ---
 
@@ -476,7 +475,8 @@ Tools:
 
 Remember:
   1. Evaluation = before ship, Monitoring = after ship — both required
-  2. LLM-as-judge correlates ~85-90% with human ratings — trust it
+  2. LLM-as-judge correlates well with humans but has biases (position,
+     verbosity, self-preference) — validate on a human-labeled sample
   3. Sample 5-10% of production traffic for async quality checks
 ```
 
@@ -500,7 +500,7 @@ Scale and cost. Human evaluation is slow and expensive — you might evaluate 10
 When a rolling metric (e.g., 24-hour average faithfulness score) drops below a predefined threshold (e.g., 0.85). Also: sudden spike in latency, error rate, cost per request, or refusal rate.
 
 **Q5: What's the minimum test set size for meaningful evaluation?**
-At minimum 50-100 examples to get statistically meaningful averages. For production-critical systems, aim for 200-500, covering happy path, edge cases, and adversarial inputs. More is better, but quality > quantity.
+Aim for 50-200 cases to start. Below ~50 the averages are too noisy; above ~500 you hit diminishing returns for a single rubric. For production-critical systems, cover the three categories explicitly: happy path, long-tail edge cases, and adversarial / safety cases. Quality (representative, well-labeled) beats quantity.
 
 </details>
 

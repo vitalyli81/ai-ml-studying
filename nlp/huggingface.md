@@ -118,7 +118,7 @@ trainer = Trainer(
         num_train_epochs=3,
         per_device_train_batch_size=16,
         learning_rate=2e-5,
-        evaluation_strategy="epoch",
+        eval_strategy="epoch",  # renamed from evaluation_strategy in transformers 4.41+
     ),
     train_dataset=tokenized_train,
     eval_dataset=tokenized_test,
@@ -307,7 +307,7 @@ trainer = Trainer(
         num_train_epochs=3,
         per_device_train_batch_size=16,
         learning_rate=2e-5,
-        evaluation_strategy="epoch",
+        eval_strategy="epoch",  # renamed from evaluation_strategy in transformers 4.41+
         save_strategy="epoch",
         load_best_model_at_end=True,
     ),

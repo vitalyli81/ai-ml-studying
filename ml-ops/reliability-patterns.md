@@ -211,7 +211,7 @@ class CircuitBreaker:
 **Three layers:**
 - **Exact-match cache** — same prompt → same response. Keyed on a hash of `(model, messages, params)`.
 - **Semantic cache** — "close enough" prompt → cached response. Keyed on embedding similarity. Lower hit quality but broader hits.
-- **Provider-side prompt cache** — the stable-prefix KV-cache discount (see production-llm-patterns.md).
+- **Provider-side prompt cache** — the stable-prefix KV-cache discount offered by providers (Anthropic `cache_control`, OpenAI prompt caching). Big win when you have a long reusable system prompt or retrieved context prefix.
 
 ```python
 import hashlib, json, redis

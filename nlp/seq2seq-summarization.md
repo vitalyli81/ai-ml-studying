@@ -60,6 +60,8 @@ DECODER (autoregressive, like GPT):
 
 **Common misconception:** ❌ "Encoder-decoder and decoder-only are the same" → ✅ A decoder-only model (GPT) uses only its own previous outputs as context. An encoder-decoder model uses a separate encoder to produce a dedicated input representation — better for tasks where input and output are very different (translation, summarization).
 
+> 💡 **"Hidden states," concretely:** The encoder output is a tensor of shape `[input_tokens × hidden_dim]` — one vector per input token (e.g., 45 tokens × 768 floats for BART). These vectors are contextual: each one already "knows" about all the others because the encoder uses bidirectional self-attention. The decoder then consults this whole set at every generation step via cross-attention. Nothing is compressed to a single vector (that was the pre-2015 RNN bottleneck).
+
 ---
 
 ### Cross-Attention

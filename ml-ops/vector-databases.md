@@ -200,26 +200,36 @@ results = db.search(
 
 ### 5. Index Types
 
+An index is the data structure that makes search fast. You pick one based on **scale** and the **accuracy / speed / memory** trade-off.
+
 ```
-Flat (brute force):
-  - Exact results (100% accurate)
-  - Scales poorly — O(n) search time
-  - Use for: small datasets (<100K vectors), when accuracy is critical
-
-IVF (Inverted File Index):
-  - Clusters vectors into groups, searches only relevant clusters
-  - Faster than flat, slightly less accurate
-  - Use for: medium datasets (100K–10M vectors)
-
-HNSW (Hierarchical Navigable Small World):
-  - Graph-based navigation, very fast
-  - ~99% accuracy
-  - Use for: most production use cases ✅
-
-Product Quantization (PQ):
-  - Compresses vectors to save memory
-  - Use for: huge datasets where memory is the bottleneck
+Index type     Recall*   Latency      Memory    When to use
+──────────────────────────────────────────────────────────────────────────────
+Flat           100%      Slow (O(n))  Low       <100K vectors, or when you
+ (brute force)                                   need exact top-K
+IVF            ~95-98%   Medium       Low       Large datasets where HNSW
+                                                 memory is too high
+HNSW           ~97-99%   Fast         High      Default for most production
+                                                 workloads (< ~50M vectors)
+IVF-PQ /       ~90-95%   Fast         Very low  100M+ vectors; memory is the
+ HNSW-PQ                                         bottleneck (compression)
+DiskANN        ~95-98%   Fast         Disk      Billions of vectors on SSD
+                                                 instead of RAM
 ```
+
+> \* **Recall** = fraction of true nearest neighbors returned. "Approximate" (ANN) indexes trade a little recall for massive speedups.
+
+**How to pick:**
+
+- **Starting out / < 1M vectors** → **HNSW**. It's the default in pgvector, Qdrant, Weaviate, and Pinecone — and it's "good enough" for almost everything.
+- **Accuracy-critical small datasets** (e.g., dedup, legal) → **Flat**. Linear scan is fine under ~100K.
+- **Memory-constrained / 10M+** → **IVF** or **IVF-PQ**. PQ compresses each vector to ~8-16 bytes at some recall cost.
+- **Billion-scale** → **DiskANN** (keeps the graph on SSD) or a managed service that handles sharding for you.
+
+**Tuning the two HNSW knobs you'll actually touch:**
+
+- `ef_construction` (build time) — higher = better graph, slower to build. Start at 200.
+- `ef_search` (query time) — higher = better recall, slower query. Start at 64-128, raise until recall stops improving.
 
 ---
 

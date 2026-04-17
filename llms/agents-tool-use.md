@@ -105,7 +105,7 @@ const anthropic = new Anthropic();
 
 // 1. Send message with tools
 const response = await anthropic.messages.create({
-  model: 'claude-sonnet-4-5-20241022',
+  model: 'claude-sonnet-4-6',
   max_tokens: 1024,
   tools,
   messages: [{ role: 'user', content: "What's the weather in Paris?" }]
@@ -121,7 +121,7 @@ if (response.stop_reason === 'tool_use') {
 
   // 4. Send result back to LLM
   const final = await anthropic.messages.create({
-    model: 'claude-sonnet-4-5-20241022',
+    model: 'claude-sonnet-4-6',
     max_tokens: 1024,
     tools,
     messages: [
@@ -166,7 +166,7 @@ async function agentLoop(userMessage: string): Promise<string> {
 
   while (true) {
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5-20241022',
+      model: 'claude-sonnet-4-6',
       max_tokens: 4096,
       system: 'You are a helpful assistant. Use tools when needed.',
       tools,
@@ -434,7 +434,7 @@ Build agents from scratch (above) or use frameworks.
 from langchain_anthropic import ChatAnthropic
 from langchain.agents import create_tool_calling_agent
 
-llm = ChatAnthropic(model="claude-sonnet-4-5-20241022")
+llm = ChatAnthropic(model="claude-sonnet-4-6")
 agent = create_tool_calling_agent(llm, tools, prompt)
 result = agent.invoke({"input": "What's the weather in Paris?"})
 ```
@@ -446,7 +446,7 @@ import { generateText, tool } from 'ai';
 import { z } from 'zod';
 
 const result = await generateText({
-  model: anthropic('claude-sonnet-4-5-20241022'),
+  model: anthropic('claude-sonnet-4-6'),
   tools: {
     weather: tool({
       description: 'Get weather for a city',

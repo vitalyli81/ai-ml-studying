@@ -89,7 +89,7 @@ from sklearn.metrics.pairwise import cosine_similarity as cos_sim
 score = cos_sim([vec_a], [vec_b])[0][0]
 ```
 
-**Common misconception:** ❌ "Euclidean distance works just as well" → ✅ Cosine similarity ignores vector magnitude and only measures direction — this matters because two documents saying the same thing in different lengths should still be similar.
+**Common misconception:** ❌ "Euclidean distance works just as well" → ✅ Cosine similarity ignores vector magnitude and only measures direction. This matters because two documents expressing the same idea at different lengths can end up with vectors of different magnitudes — cosine treats them as equally similar, Euclidean doesn't. (Footnote: if vectors are L2-normalized to unit length, cosine and Euclidean rank neighbors identically — some vector DBs exploit this and actually store normalized vectors under the hood.)
 
 ---
 

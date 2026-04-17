@@ -349,7 +349,7 @@ async function ask(question: string): Promise<string> {
 
   // Generate with context
   const response = await anthropic.messages.create({
-    model: 'claude-sonnet-4-5-20241022',
+    model: 'claude-sonnet-4-6',
     max_tokens: 1024,
     system: `Answer based only on the provided context.
              If the context doesn't contain the answer, say "I don't have that information."
@@ -409,7 +409,7 @@ def query_rag(question: str, top_k: int = 3) -> dict:
 
     # 3. Generate answer
     response = client.messages.create(
-        model="claude-sonnet-4-5-20241022",
+        model="claude-sonnet-4-6",
         max_tokens=1024,
         system="""Answer based ONLY on the provided context sources.
                   If unsure, say so. Always cite the source filename.""",

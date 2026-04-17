@@ -188,11 +188,12 @@ def safe_generate(user_input: str) -> Quote | None:
 **One-liner:** Off-the-shelf classifiers that rate text for sexual, violent, hate, self-harm content.
 
 **Options:**
-- **OpenAI Moderation API** — free, fast, well-calibrated
-- **Anthropic's built-in safety** — handled by the model itself; you get the benefit automatically
-- **Llama Guard (Meta)** — open-weight, can self-host
-- **Azure AI Content Safety** — enterprise-grade, multi-category
-- **Perspective API (Jigsaw)** — toxicity-focused
+- **OpenAI Moderation API** — free, fast, well-calibrated; use as an independent check on *any* model's output, not just OpenAI's.
+- **Llama Guard (Meta)** — open-weight, can self-host; strong on the MLCommons taxonomy (violence, sexual, hate, self-harm, etc.).
+- **Azure AI Content Safety** — enterprise-grade, multi-category, regional data residency.
+- **Perspective API (Jigsaw)** — toxicity-focused, good for moderation of user-generated content.
+
+> 💡 Frontier models (Claude, GPT-4, Gemini) have refusal training built in — that helps, but it's not a *separate classifier you control* and it doesn't catch your business-specific rules. Treat provider safety training as one layer; add an explicit classifier for defense in depth.
 
 Run on both input and output for user-generated content. Two layers = defense in depth.
 
@@ -243,6 +244,10 @@ import re, anthropic
 client = anthropic.Anthropic()
 
 SSN_RE = re.compile(r"\b\d{3}-\d{2}-\d{4}\b")
+# ⚠️ DEMO ONLY — a keyword list is trivially bypassed ("ig\u200bnore previous",
+# base64-encoded instructions, translations, roleplay framings, etc.). In
+# production, use a dedicated classifier (Llama Guard, Prompt Shields,
+# Guardrails AI) on top of layered defenses.
 INJECTION_HINTS = ["ignore previous", "ignore your instructions",
                    "you are now", "system prompt:"]
 
