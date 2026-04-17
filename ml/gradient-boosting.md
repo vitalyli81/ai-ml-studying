@@ -120,13 +120,13 @@ The golden rule: lower learning rate + more trees = better (up to a point)
 model = XGBClassifier(n_estimators=500)  # might need 150 or 800 — who knows?
 
 # With early stopping: let the data decide
-model = XGBClassifier(n_estimators=5000, learning_rate=0.05)
-model.fit(
-    X_train, y_train,
-    eval_set=[(X_val, y_val)],
-    early_stopping_rounds=50,  # Stop if no improvement for 50 rounds
-    verbose=False
+# (XGBoost >= 2.0: early_stopping_rounds is a constructor arg, not a fit() kwarg)
+model = XGBClassifier(
+    n_estimators=5000,
+    learning_rate=0.05,
+    early_stopping_rounds=50,   # Stop if no improvement for 50 rounds
 )
+model.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)
 print(f"Optimal trees: {model.best_iteration}")  # e.g., 247 trees
 ```
 
@@ -262,19 +262,19 @@ X_train, X_val, y_train, y_val = train_test_split(
 )
 
 model = XGBClassifier(
-    n_estimators=5000,      # Large — early stopping will find optimal
-    learning_rate=0.05,     # Smaller learning rate = more trees but better result
+    n_estimators=5000,           # Large — early stopping will find optimal
+    learning_rate=0.05,          # Smaller learning rate = more trees but better result
     max_depth=5,
-    subsample=0.8,          # Use 80% of data per tree (regularization)
-    colsample_bytree=0.8,   # Use 80% of features per tree (regularization)
+    subsample=0.8,               # Use 80% of data per tree (regularization)
+    colsample_bytree=0.8,        # Use 80% of features per tree (regularization)
     random_state=42,
     eval_metric='logloss',
+    early_stopping_rounds=50,    # Stop if no improvement for 50 consecutive rounds
 )
 
 model.fit(
     X_train, y_train,
     eval_set=[(X_val, y_val)],
-    early_stopping_rounds=50,   # Stop if no improvement for 50 consecutive rounds
     verbose=False,
 )
 
@@ -287,6 +287,7 @@ print(classification_report(y_test, model.predict(X_test)))
 ### 3. Real-World Pattern — LightGBM + Feature Importance
 
 ```python
+import lightgbm as lgb
 from lightgbm import LGBMClassifier
 import pandas as pd
 import numpy as np
@@ -296,7 +297,7 @@ model = LGBMClassifier(
     n_estimators=1000,
     learning_rate=0.05,
     max_depth=6,
-    num_leaves=31,          # LightGBM uses num_leaves instead of max_depth
+    num_leaves=31,          # LightGBM grows leaf-wise — num_leaves is the main size knob
     subsample=0.8,
     colsample_bytree=0.8,
     min_child_samples=20,   # Minimum samples per leaf (regularization)
@@ -391,14 +392,14 @@ print(importance_df.head(10).to_string(index=False))
 from xgboost import XGBClassifier
 from lightgbm import LGBMClassifier
 
-# XGBoost (standard choice):
+# XGBoost (standard choice, XGBoost >= 2.0):
 model = XGBClassifier(
-    n_estimators=5000,          # Large + early stopping
+    n_estimators=5000,           # Large + early stopping finds the right number
     learning_rate=0.05,          # Lower = more trees, better accuracy
     max_depth=5,                 # Shallow trees (3-8 typical)
     subsample=0.8,               # Subsample rows per tree
     colsample_bytree=0.8,        # Subsample features per tree
-    early_stopping_rounds=50,    # Attach via fit() eval_set
+    early_stopping_rounds=50,    # Constructor arg in XGBoost 2.x
 )
 model.fit(X_train, y_train, eval_set=[(X_val, y_val)])
 

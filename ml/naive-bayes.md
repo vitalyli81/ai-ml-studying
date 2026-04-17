@@ -111,18 +111,24 @@ Naive Bayes (incorrect but works):
 
 ```
 Without smoothing:
-  P("cryptocurrency" | spam) = 0/500 = 0.0  ← "cryptocurrency" never in training spam
-  
+  P("cryptocurrency" | spam) = 0 / 500 = 0.0
+  (500 = total word occurrences in spam docs; "cryptocurrency" never appeared)
+
   New email with "cryptocurrency":
   P(spam | ..., "cryptocurrency", ...) = ... × 0.0 × ... = 0.0 always!
-  
+
   → Any email with an unseen word is always classified the same way. Broken.
 
-With Laplace smoothing (add 1 to all counts):
-  P("cryptocurrency" | spam) = (0+1)/(500+V) = 1/510000 ← tiny but nonzero
-  
+With Laplace smoothing (scikit-learn default, alpha=1):
+  P(word | spam) = (count + alpha) / (total_word_count_in_spam + alpha × V)
+
+  If V = 10,000 unique words in the vocabulary and spam has 500 total word
+  occurrences, then:
+  P("cryptocurrency" | spam) = (0 + 1) / (500 + 1 × 10,000) = 1 / 10,500
+                             ≈ 0.0001  ← tiny but nonzero
+
   → Unseen words get a small probability. Classification still works.
-  
+
 V = vocabulary size (number of unique words in training data)
 ```
 

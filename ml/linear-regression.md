@@ -190,20 +190,26 @@ Step 3: Compute MSE
   MSE = 60 billion ← very bad
 
 Step 4: Compute gradient (how to adjust w and b)
-  ∂MSE/∂w = -2 × avg(error × x) = -240,000
-  ∂MSE/∂b = -2 × avg(error)     = -246,000
+  With errors = actual - predicted and sqft values x:
+  ∂MSE/∂w = -2 × avg(error × x) ≈ -544,000,000
+  ∂MSE/∂b = -2 × avg(error)     ≈     -492,000
+  (negative gradients mean: increasing w and b will reduce error)
 
-Step 5: Update weights (learning rate = 0.0000001)
-  w = 0 - 0.0000001 × (-240,000) = 0.024
-  b = 0 - 0.0000001 × (-246,000) = 0.0246
+Step 5: Update weights (tiny learning rate — the gradients are huge)
+  w = 0 - 1e-8 × (-5.44e8) ≈ 5.44
+  b = 0 - 1e-8 × (-4.92e5) ≈ 0.005
 
 Step 6: Repeat steps 2-5 thousands of times
-  ...after 10,000 iterations...
-  w ≈ 180,   b ≈ 40,000
+  Each step nudges w and b toward values that reduce MSE.
+  (Gradient descent on raw features like this is slow — scaling the
+  features first makes convergence much faster in practice.)
 
-Step 7: Final model
-  price = 180 × sqft + 40,000
-  For 1100 sqft: price = 180 × 1100 + 40,000 = $238,000
+Step 7: Final model (after convergence)
+  Closed-form solution on this data: price ≈ 218 × sqft + 23,600
+  For 1100 sqft: price ≈ 218 × 1100 + 23,600 ≈ $263,000
+
+  (scikit-learn's LinearRegression uses the closed-form solution
+  directly — no iterative gradient descent needed for this loss.)
 ```
 
 ---

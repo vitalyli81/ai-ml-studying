@@ -178,7 +178,9 @@ x' = (x - median) / IQR
 | KNN, SVM (distance-based) | Decision Trees |
 | Linear/Logistic Regression (gradient descent converges faster) | Random Forest |
 | Neural Networks | Gradient Boosting (XGBoost, LightGBM) |
-| K-Means, PCA | Naive Bayes |
+| K-Means, PCA | Gaussian Naive Bayes |
+
+> ⚠️ **Multinomial / Bernoulli Naive Bayes** expect **non-negative counts** (word frequencies). Never apply `StandardScaler` before them — it produces negative values and breaks the model. If you must rescale, use `MinMaxScaler` or leave raw counts / TF-IDF alone.
 
 **Code:**
 ```python

@@ -77,20 +77,25 @@ Decision trees made ML interpretable. Unlike "black box" models, every decision 
 
 ### 2. Gini Impurity — Choosing the Best Split
 
-**One-line definition:** A score from 0 to 0.5 that measures how "mixed" a group is — 0 means perfectly pure (one class only), 0.5 means completely mixed.
+**One-line definition:** A score that measures how "mixed" a group is — 0 means perfectly pure (one class only), higher values mean more mixed.
 
-**Analogy:** Imagine sorting colored marbles into buckets. Gini impurity measures how mixed each bucket is. A bucket with all red marbles (Gini = 0) is perfect. A bucket with half red, half blue (Gini = 0.5) is maximally impure.
+**Analogy:** Imagine sorting colored marbles into buckets. Gini impurity measures how mixed each bucket is. A bucket with all red marbles (Gini = 0) is perfect. A bucket with an even split of classes is maximally impure.
 
 ```
 Formula: Gini = 1 - (p₁² + p₂² + ...)
   where p₁, p₂... = fraction of each class in the group
+
+Max Gini depends on the number of classes K:
+  2 classes → max Gini = 0.5   (50/50 split)
+  3 classes → max Gini ≈ 0.67  (even thirds)
+  K classes → max Gini = 1 - 1/K
 
 Example:
   Group A: 10 spam, 0 not-spam
   Gini A = 1 - (1² + 0²) = 0       ← perfectly pure ✓
 
   Group B: 5 spam, 5 not-spam
-  Gini B = 1 - (0.5² + 0.5²) = 0.5 ← completely mixed ✗
+  Gini B = 1 - (0.5² + 0.5²) = 0.5 ← maximally mixed for 2 classes ✗
 
 The tree picks the split that produces the lowest weighted Gini
 across both resulting groups.
@@ -370,7 +375,7 @@ Remember:
 Without constraints, the tree keeps splitting until every leaf contains exactly one training example (or all examples in that leaf are the same class). It memorizes every data point. This is perfect overfitting — it fails on any new data.
 
 **Q2: What does Gini impurity of 0 mean, and what does 0.5 mean?**
-Gini = 0 means the node is perfectly pure — all examples belong to the same class. Gini = 0.5 means perfectly mixed — exactly 50% class 0, 50% class 1. The tree tries to find splits that move groups toward Gini = 0.
+Gini = 0 means the node is perfectly pure — all examples belong to the same class. Gini = 0.5 is the maximum for a 2-class problem — exactly 50% class 0, 50% class 1 (for K classes the max is 1 − 1/K). The tree tries to find splits that move groups toward Gini = 0.
 
 **Q3: Why doesn't a decision tree need feature scaling?**
 Decision trees make decisions based on thresholds: "Is feature X > some value?" The absolute scale doesn't matter — whether income is in dollars ($50,000) or thousands ($50), the tree finds the right threshold. Unlike distance-based algorithms (KNN, SVM), the scale is irrelevant.

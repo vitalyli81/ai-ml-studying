@@ -202,7 +202,7 @@ Step 3: Update centroids
     → new centroid: (60, 82.5)
 
 Step 4: Reassign with new centroids
-  (60,5) → dist to A(35,36): 36.4, dist to B(60,82.5): 77.5 → stays A
+  (60,5) → dist to A(35,36): 39.8, dist to B(60,82.5): 77.5 → stays A
   All others settle → no changes!
 
 Step 5: Converged!
