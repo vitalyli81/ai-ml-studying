@@ -448,6 +448,51 @@ class Chat:
 
 ---
 
+## Production Notes
+
+### Cost — what each pattern actually saves
+
+| Pattern | Cost impact | Break-even |
+|---------|-------------|-----------|
+| Prompt caching | ~90% off cached input tokens | Pays off at >2 calls/5min against a stable ≥1K-token prefix |
+| History trimming (sliding window + summary) | Linear reduction in input tokens | Always, past ~10 turns |
+| Model tiering (Haiku for classify, Sonnet for generate) | 5–15× cheaper on classification steps | Always, when you have a routing step |
+| Tool use / JSON mode | Fewer re-tries on format errors | Pays off if your current JSON-failure rate > 2% |
+
+The biggest single-lever win is caching a stable system prompt. A 2K-token cached prefix across 50K Sonnet requests/day saves ~$250/day vs uncached.
+
+### Latency — perceived vs actual
+
+| Metric | What it is | How to move it |
+|--------|-----------|---------------|
+| TTFT (p50) | Time to first streamed token | Caching drops TTFT by 30–60% on long prompts |
+| Full response | TTFT + (output tokens × ms/tok) | Smaller model, or fewer output tokens |
+| Perceived latency | What the user feels | Streaming — halves perceived latency even if total is unchanged |
+
+Target: TTFT p95 under 1.5 s on chat surfaces. Anything past 3 s and users think you're broken.
+
+### Failure modes
+
+- **Cache invalidation cascade** — someone edits a word in the cached prefix; cache hit rate crashes to 0% and cost doubles. Mitigation: golden-hash your cached prefix in CI.
+- **History bloat OOM** — unbounded conversation grows past context window; request 400s. Mitigation: hard cap on turn count + summarize overflow.
+- **Retry storm** — every client retrying a 5xx amplifies the outage. Mitigation: exponential backoff + jitter + circuit breaker (see [../ml-ops/reliability-patterns.md](../ml-ops/reliability-patterns.md)).
+- **Partial stream** — stream dies mid-response; client renders a half-sentence. Mitigation: detect stream-end markers, resume or clearly error.
+- **Tool-call loop** — model calls the same tool repeatedly with similar args. Mitigation: max-steps cap + dedupe identical calls.
+- **Silent model drift** — provider ships a snapshot update, behavior shifts. Mitigation: pin versions, run evals on every bump.
+
+### What to monitor
+
+- **Cache hit rate** per endpoint (target >80% for stable workloads).
+- **TTFT p50/p95** and **full-response p95**, per model and feature.
+- **Retry count distribution** — rising p95 retries = upstream degrading.
+- **Tokens-per-request distribution (in + out)** — output-side long tail = prompt bug.
+- **$/request by feature** with a daily budget alert.
+- **Format-validation failure rate** on structured outputs.
+
+See [../ml-ops/llm-observability.md](../ml-ops/llm-observability.md) for how to wire these into Langfuse/Helicone, and [evals.md](evals.md) for guarding quality against regressions.
+
+---
+
 ## Related Concepts (The Map)
 
 - **RAG** — retrieval augmentation is *complementary* to these patterns; RAG decides *what* goes in the prompt, these patterns decide *how* you send it

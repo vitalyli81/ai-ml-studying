@@ -354,6 +354,51 @@ if not gate(current, baseline, thresholds):
 
 ---
 
+## Production Notes
+
+### Cost — LLM-as-judge isn't free
+
+Judge cost per example ≈ `(judge_input_tokens × in_price + judge_output_tokens × out_price) / 1M`. Typical judge call: 2K input + 200 output.
+
+| Judge model | Per-example cost | 1K-example eval run |
+|-------------|------------------|---------------------|
+| Haiku / GPT-4o-mini | ~$0.001 | ~$1 |
+| Sonnet | ~$0.009 | ~$9 |
+| Opus / o1 | ~$0.045 | ~$45 |
+
+**Strategy:** use Sonnet as default judge; use Opus only for dimensions where Sonnet's agreement with humans is too low. Validate the judge itself against ~100 human labels before you trust its verdicts.
+
+### Latency — where evals fit in your pipeline
+
+| Eval type | Where it runs | Budget |
+|-----------|---------------|--------|
+| Offline regression (golden set, 100–500 ex) | CI, on every prompt/model change | 2–5 min total |
+| Pre-merge smoke (20 ex) | Pre-commit or fast CI | 30–60 s |
+| Online judge (1–5% sample) | Async, behind the user response | Fire-and-forget; judge completes in seconds |
+
+Never block user responses on an eval call. Score asynchronously and aggregate.
+
+### Failure modes
+
+- **Judge drift** — provider ships a model update, judge scores shift. Mitigation: pin judge model version (`claude-sonnet-4-6`, not `-latest`); track judge calibration on a held-out human-labeled set.
+- **Dataset staleness** — prod inputs drift away from your golden set; evals pass but users suffer. Mitigation: refresh 10–20% of the golden set monthly from real prod samples.
+- **Judge sycophancy / position bias** — judges favor longer answers or the first of two. Mitigation: randomize pair order; strip length cues; use pairwise + swap.
+- **Overfitting to the eval** — engineers tune prompts to pass the specific examples. Mitigation: keep a held-out "blind" set you only run quarterly.
+- **Rubric ambiguity** — judges disagree with each other. Mitigation: tighten the rubric; include 2–3 few-shot examples of scored outputs in the judge prompt.
+- **False confidence** — eval passes but real users complain. Mitigation: the online judge + thumbs-up/down tells you this before Twitter does.
+
+### What to monitor
+
+- **Eval pass rate** per commit (fails the build on drops > threshold).
+- **Judge ↔ human agreement** (Cohen's kappa) on a rotating audit set — alert if it drops.
+- **Per-dimension scores** (accuracy, tone, safety) so regressions are diagnosable.
+- **Online judge score distribution** — a leftward shift = live quality regression before users complain.
+- **Eval run cost per merge** — prevents eval bloat from becoming a cost problem.
+
+See [../ml-ops/evaluation-monitoring.md](../ml-ops/evaluation-monitoring.md) for CI/CD integration and [../ml-ops/experimentation.md](../ml-ops/experimentation.md) for A/B-testing prompts against evals.
+
+---
+
 ## Related Concepts (The Map)
 
 - **Unit testing** — evals are the LLM analog; same spot in your dev loop

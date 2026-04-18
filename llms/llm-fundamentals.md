@@ -466,6 +466,48 @@ You won't train a frontier model. But scaling laws drive the decisions you *do* 
 
 ---
 
+## Production Notes
+
+### Cost (2026 ballpark — always check current pricing)
+
+| Tier | Example model | Input $/1M tok | Output $/1M tok | Use for |
+|------|---------------|----------------|-----------------|---------|
+| Small | Haiku / GPT-4o-mini / Gemini Flash | ~$0.25–1 | ~$1–4 | High-volume classification, extraction, routing |
+| Mid | Sonnet / GPT-4o | ~$3 | ~$15 | Default production workhorse |
+| Flagship | Opus / o1 | ~$15 | ~$75 | Hard reasoning, agent planners, code |
+
+**Back-of-envelope rule:** output tokens cost ~4–5× input tokens. A chatbot answering with 300 tokens on 2K input on Sonnet ≈ $0.011 per turn → 100K turns/month ≈ $1,100.
+
+### Latency (typical p50 / p95)
+
+| Op | p50 | p95 | Notes |
+|----|-----|-----|-------|
+| Time-to-first-token (TTFT) | 300–600 ms | 1–2 s | Streaming makes this the number users *feel* |
+| Per-output-token | 20–60 ms | 80–150 ms | Flagship is slower than small tier |
+| Full response (300 tok) | 6–15 s | 15–30 s | Never block UI on this — stream or async |
+
+Longer context inflates TTFT (loading + attention scales). 100K-token prompts can push p95 TTFT to 3–5 s even on mid-tier.
+
+### Failure modes to plan for
+
+- **5xx / overloaded** — provider capacity events happen; retry with exponential backoff + jitter, and keep a fallback provider.
+- **Rate limits (429)** — respect `Retry-After`; at scale, batch or queue.
+- **Hallucination on facts** — the model will confidently invent. Ground with RAG or tools; never trust unsourced factual claims.
+- **"Lost in the middle"** — long contexts bury information placed in the middle. Put critical instructions and retrieved facts near the top *and* bottom.
+- **Silent model swaps** — providers sometimes ship snapshot updates. Pin model versions (`claude-sonnet-4-6` not `claude-sonnet-latest`) and run evals before upgrading.
+
+### What to monitor
+
+- **Cost per request** and **$/day by feature** — the number one surprise bill source.
+- **TTFT + full-response p50/p95** per endpoint.
+- **Output-token distribution** — a sudden long-tail spike usually means a prompt bug (loops, repeated apologies).
+- **Error rate by type** (429, 5xx, timeout, validation) — alert on each separately.
+- **Hallucination / accuracy** via a small online eval sample (LLM-as-judge on 1–5% of traffic).
+
+See [production-llm-patterns.md](production-llm-patterns.md) for caching, retries, and fallbacks; [../ml-ops/llm-observability.md](../ml-ops/llm-observability.md) for how to wire the dashboards.
+
+---
+
 ## Related Concepts (The Map)
 
 | If you know... | LLM concept is like... |

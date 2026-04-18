@@ -519,6 +519,60 @@ const batch = await anthropic.messages.batches.create({
 
 ---
 
+## Production Notes
+
+### Cost estimation (per feature)
+
+The only formula you need:
+
+```
+cost/request = (input_tokens × in_price + output_tokens × out_price) / 1_000_000
+```
+
+Then: `monthly_cost = cost/request × requests/month`.
+
+**Worked example** — chatbot on Sonnet, 2K input (incl. system prompt + history), 400 output, 50K requests/day:
+- `(2000 × $3 + 400 × $15) / 1M = $0.012/request`
+- `$0.012 × 50K × 30 = $18,000/month`
+- With prompt caching (90% cache hit on 1.8K of the input): drops to ~$5,000/month.
+
+**Order-of-magnitude shortcuts:**
+- Haiku/Flash ≈ $1 per 1M "typical" chatbot turns.
+- Sonnet ≈ $10 per 1M turns.
+- Opus ≈ $50 per 1M turns.
+
+### Latency SLAs to design for
+
+| Metric | Small tier | Mid tier | Flagship |
+|--------|-----------|----------|----------|
+| TTFT p50 | 200–400 ms | 400–700 ms | 700 ms–1.5 s |
+| TTFT p95 | 800 ms | 1.5 s | 3 s |
+| Tokens/sec | 80–150 | 40–80 | 20–40 |
+
+**Rule:** never block a user-facing response on a non-streaming LLM call. Use streaming on every chat endpoint; batch/async for background jobs.
+
+### Failure modes
+
+- **429 rate-limited** — respect `Retry-After`, apply exponential backoff + jitter, shed load. Don't retry in tight loops; you'll deepen the outage.
+- **5xx / capacity events** — providers have regional capacity blips. Keep a cross-provider fallback (Anthropic → OpenAI → local).
+- **Timeouts mid-stream** — the stream can die after N tokens. Detect and resume or restart; don't assume a clean end.
+- **Schema violation on tool/JSON mode** — providers mostly enforce it, but network truncation still happens. Validate every response; retry once on parse failure.
+- **Content-policy refusals** — treat as a user-visible error, not a crash; log the prompt for safety review.
+- **Token-limit overflow** — input + max_output > context window throws at request time. Pre-estimate with the tokenizer before sending; trim history first.
+
+### What to monitor
+
+- **Cost per request and per feature** (tag every call with `feature_id`).
+- **TTFT p50/p95** per endpoint, broken down by model.
+- **Error rate by status code** (429 vs 5xx vs timeout vs validation).
+- **Retry count** — a rising p95 retry count = the upstream is degrading before it 5xx's.
+- **Cache hit rate** on cached system prompts (see [production-llm-patterns.md](production-llm-patterns.md)).
+- **Token-usage drift** — a sudden spike in output tokens usually = prompt regression.
+
+See [../ml-ops/reliability-patterns.md](../ml-ops/reliability-patterns.md) for retry/fallback code and [../ml-ops/llm-observability.md](../ml-ops/llm-observability.md) for tracing.
+
+---
+
 ## Related Concepts (The Map)
 
 | If you know... | LLM API concept is like... |

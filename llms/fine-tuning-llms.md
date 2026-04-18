@@ -510,6 +510,56 @@ Always start from the top. Move down only when simpler methods fail.
 
 ---
 
+## Production Notes
+
+### Training cost & time (LoRA / QLoRA, 2026 ballpark)
+
+| Base model | Dataset | Method | GPU | Time | Cost |
+|-----------|---------|--------|-----|------|------|
+| Llama-3-8B | 1K examples | LoRA | 1× A100 (40GB) | 1–3 h | $1–3 |
+| Llama-3-8B | 10K examples | LoRA | 1× A100 | 6–12 h | $6–12 |
+| Llama-3-70B | 10K examples | QLoRA | 2× A100 (80GB) | 12–24 h | $50–100 |
+| Mistral-7B | 5K examples | QLoRA | 1× consumer GPU (24GB) | 4–8 h | $0 if you own it |
+
+**Full fine-tuning of a 70B model** — days to weeks, multiple A100s, $thousands. Almost never the right choice for an AI Engineer; use LoRA/QLoRA.
+
+Providers (OpenAI, Anthropic) offer managed fine-tuning at ~$25 per 1M training tokens — simpler but less control and a ~2–5× serving cost premium for the tuned model.
+
+### Serving cost — the real question
+
+Fine-tuning's value shows up at serving, not training. Break-even math:
+
+```
+API cost/req (Sonnet)   ≈ $0.01
+Self-hosted 7B cost/req ≈ $0.0005  (on a warm GPU, batched)
+
+Break-even = (GPU $/hour) / (API $/req - self-host $/req)
+           ≈ $2 / ($0.01 - $0.0005) ≈ 210 requests/hour (~5K/day)
+```
+
+Below ~5K req/day on a small model, you're better off with API + good prompting. Above that, self-hosting a fine-tuned model can save 10–100×. Serving latency (p50) on a warm 7B is 100–300 ms TTFT vs 400–700 ms for a frontier API.
+
+### Failure modes
+
+- **Catastrophic forgetting** — model loses general capability after tuning. Mitigation: LoRA (not full-FT), mix 10–20% general instruction data into your training set, keep eval coverage on general tasks.
+- **Overfitting on 100 examples** — model memorizes instead of generalizing. Mitigation: hold out a real eval set; stop training when eval loss stops improving.
+- **Data leakage** — eval examples accidentally in the train set. Mitigation: dedupe by exact + fuzzy (embedding-sim) match before splitting.
+- **Label noise amplified** — bad labels in training = confidently wrong outputs. Mitigation: audit 10–20 random examples by hand before training; use inter-annotator agreement.
+- **Base-model drift** — you fine-tune on Llama-3.1, then Llama-3.3 ships with different behavior. Mitigation: pin base model version; plan to re-tune yearly.
+- **Serving skew** — tokenizer/chat template differs between training and serving. Mitigation: use the exact same chat template (Hugging Face `apply_chat_template`) in both.
+
+### What to monitor
+
+- **Training:** train vs eval loss curves (watch for overfit gap), gradient norms, GPU utilization.
+- **Post-training evals:** task accuracy on held-out set + general-capability benchmarks (MMLU subset) to catch forgetting.
+- **Serving:** per-request latency p50/p95, throughput (req/sec/GPU), GPU memory utilization, cold-start time.
+- **Quality drift:** online LLM-as-judge score on a sample of real traffic.
+- **Cost per request** (serving + amortized training) vs. API baseline — the break-even is dynamic.
+
+See [evals.md](evals.md) for the eval harness, [../ml-ops/cicd-for-ml.md](../ml-ops/cicd-for-ml.md) for training pipelines + model registry, and [../ml-ops/model-serving.md](../ml-ops/model-serving.md) for deploying tuned models.
+
+---
+
 ## Related Concepts (The Map)
 
 | If you know... | Fine-tuning concept is like... |

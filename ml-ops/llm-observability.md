@@ -295,6 +295,75 @@ Send to any OTel backend: Langfuse, Phoenix, Honeycomb, Datadog, Jaeger.
 
 ---
 
+## Production Notes
+
+### Cost of observability itself
+
+| Component | Typical cost |
+|-----------|--------------|
+| Trace backend (managed: Langfuse/Helicone/LangSmith) | Free tier ~10–50K traces/mo; paid ~$0.001–0.01 per trace at scale |
+| Self-hosted Langfuse (Postgres + ClickHouse) | Infra only — ~$100–300/mo for up to ~1M traces/mo |
+| LLM-as-judge online eval sampling | `$judge_cost × sample_rate × total_traffic` — e.g., 1% of 50K req/day × $0.009 Sonnet judge ≈ $135/mo |
+| Storage retention | Managed: included up to ~30–90 days; beyond that, export to S3/BigQuery |
+
+**Rule:** observability should cost <1% of your LLM spend. If it doesn't, sample more aggressively (log 100% of errors, 10% of successes).
+
+### Latency impact
+
+Tracing adds negligible user-visible latency when done right:
+
+| Approach | Added latency | Use when |
+|----------|---------------|----------|
+| Async batched trace export | <1 ms per request | Default — always |
+| Sync trace write before response | 20–100 ms | Never in a user path |
+| Online LLM-judge scoring | Seconds, but async | Fire-and-forget after response is returned |
+
+Never block the user response on the trace backend being up.
+
+### Failure modes
+
+- **Silent trace loss** — trace backend outage or network blip drops spans. Mitigation: buffer locally (in-memory queue with disk spill), retry with backoff, alert when buffer depth grows.
+- **PII in prompts/completions** — raw user data is logged to a third-party backend. Mitigation: redact (see [safety-guardrails.md](safety-guardrails.md)) before export; configure the SDK to mask sensitive fields.
+- **Sampling blind spots** — you sample 10% and the one bug that matters lives in the other 90%. Mitigation: always log 100% of errors and feedback events; sample only successes.
+- **Prompt-version misalignment** — traces tag `prompt_v7` but the running service is actually on `v8`. Mitigation: derive the version from a hash of the actual prompt at call time, not a hand-set constant.
+- **Cost-tracking gaps** — a new model ships, tokenizer estimate goes stale, cost numbers look wrong. Mitigation: pull token counts from the API response, not a local estimator.
+- **Alert fatigue** — latency spikes fire pages every hour. Mitigation: alert on 5-minute rolling p95, not single events; require N consecutive breaches.
+
+### What to monitor (the operator's checklist)
+
+**Cost**
+- `$/day` total and per feature (tag every trace with `feature_id`).
+- Token usage distribution (input, output, cached) — long tails signal prompt bugs.
+- **Alert:** daily spend > 1.3× 7-day trailing average.
+
+**Latency (per endpoint, per model)**
+- TTFT p50/p95 — target p95 < 1.5 s for chat.
+- Full response p50/p95.
+- Retrieval + reranker latency for RAG pipelines (see [../llms/rag.md](../llms/rag.md)).
+- **Alert:** p95 TTFT > 2× baseline for 5 minutes.
+
+**Reliability**
+- Error rate broken out by status code (429, 5xx, timeout, schema-fail).
+- Retry count p95.
+- Provider mix (fraction of traffic on primary vs fallback).
+- **Alert:** error rate > 2% for 5 minutes; any sustained fallback usage.
+
+**Quality**
+- Online LLM-as-judge score on a 1–5% sample.
+- User feedback rate (thumbs up/down, regeneration clicks).
+- Hallucination rate on ground-truth-checkable questions.
+- **Alert:** judge score drops > 5% vs 7-day baseline.
+
+**SLO targets to start with**
+- Availability: 99.5% (chat), 99.9% (async batch).
+- TTFT p95: 1.5 s (chat), 3 s (RAG).
+- Error rate: < 1%.
+- Cost: within ± 20% of forecast/day.
+
+See [../llms/production-llm-patterns.md](../llms/production-llm-patterns.md) for what to actually instrument, [evaluation-monitoring.md](evaluation-monitoring.md) for the online-eval side, and [reliability-patterns.md](reliability-patterns.md) for the retry/fallback code paths that produce the signals above.
+
+---
+
 ## Related Concepts (The Map)
 
 - **OpenTelemetry** — the protocol; LLM platforms speak it. If you know OTel from web backends, LLM tracing is the same shape.

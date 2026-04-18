@@ -293,6 +293,54 @@ asyncio.run(main())
 
 ---
 
+## Production Notes
+
+### Transport choice drives everything
+
+| Transport | Typical latency overhead | Deploy model | Use when |
+|-----------|--------------------------|--------------|----------|
+| **stdio** | <5 ms | Child process of the client | Local dev tools, desktop agents, single-user CLIs |
+| **HTTP (SSE/streamable)** | 20–100 ms LAN, 100–500 ms internet | Separate service | Multi-user, cloud-hosted, needs scaling/monitoring |
+
+stdio is free but single-user and single-machine. HTTP costs a hop but gives you auth, rate limiting, horizontal scaling, and normal web ops.
+
+### Cost
+
+MCP itself is free — it's just a protocol. Costs come from:
+- **What the tools do** (API calls, DB reads, compute) — unchanged vs rolling your own.
+- **Token cost of tool definitions** — large MCP servers can add 1–3K tokens to every agent call. Mitigation: only register the tools this agent actually needs; cache the system prompt.
+
+### Latency (p50 / p95)
+
+| Step | stdio p50 / p95 | HTTP p50 / p95 |
+|------|-----------------|----------------|
+| Tool discovery (`tools/list`) | <5 ms / 20 ms | 30 ms / 200 ms |
+| Tool call (excl. tool work) | <5 ms / 20 ms | 30–80 ms / 300 ms |
+| Full tool round-trip | depends on the tool | depends on the tool |
+
+The MCP overhead is rarely the bottleneck — the tool's own work (API calls, DB queries) dominates.
+
+### Failure modes
+
+- **Server crash / disconnect** — client must handle reconnect and tool re-discovery. Don't cache tool schemas forever.
+- **Version mismatch** — client expects a tool that the server removed or renamed. Mitigation: semver your server, surface capabilities in `initialize`, feature-detect before calling.
+- **Slow tool blocks the agent loop** — one hung tool freezes the whole agent. Mitigation: per-tool timeout (5–30 s typical) with a clear error back to the model.
+- **Untrusted server** — a malicious MCP server returns prompt-injection payloads or exfiltrates your data. Mitigation: only run servers you trust; in production, isolate servers per-tenant; sanitize outputs before returning to the model.
+- **Auth drift** — OAuth tokens expire mid-session. Mitigation: refresh-on-401 in the client transport layer.
+- **Schema-validation failure** — tool returns the wrong shape. Mitigation: validate on both sides; return a structured error to the model so it can retry correctly.
+
+### What to monitor (HTTP servers)
+
+- **Connection error rate** — how often clients fail to initialize.
+- **Per-tool call latency p50/p95** and **error rate** by tool name.
+- **Active session count** and **session duration** (memory pressure signal).
+- **Auth failure rate** per tenant.
+- **Tool-schema change events** — any change should bump a version and trigger client re-discovery.
+
+See [agents-tool-use.md](agents-tool-use.md) for how agents consume these tools and [../ml-ops/safety-guardrails.md](../ml-ops/safety-guardrails.md) for injection defenses.
+
+---
+
 ## Related Concepts (The Map)
 
 - **Tool use / function calling** — MCP is a **wire format** for function calling. The model-facing mechanics are the same.

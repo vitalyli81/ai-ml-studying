@@ -551,6 +551,56 @@ Rule of thumb:
 
 ---
 
+## Production Notes
+
+### Cost breakdown (per query)
+
+| Stage | Typical cost | Notes |
+|-------|-------------|-------|
+| Query embedding | $0.00002 – $0.0001 | One embedding call per query |
+| Vector search | ~free (per-query) | Cost is storage + infra, not per-query |
+| Reranker (optional) | $0.001 – $0.005 | Cross-encoder over top-50 → top-5 |
+| Generation (LLM) | $0.005 – $0.05 | Retrieved chunks inflate input tokens |
+| **Total per query** | **~$0.01 – $0.06** | Generation dominates |
+
+**Ingestion** (one-time): embedding 1M chunks ≈ $20–$100; vector DB storage ≈ $70/mo per 1M 1536-d vectors on managed services (Pinecone/Turbopuffer ballpark).
+
+**Biggest cost lever:** chunk size. Smaller chunks = more retrieved context = more input tokens. Tune `top_k` + chunk size together against an eval set.
+
+### Latency budget (p50 / p95)
+
+| Stage | p50 | p95 |
+|-------|-----|-----|
+| Query embedding | 30 ms | 100 ms |
+| Vector search (managed, 1M vectors) | 20–50 ms | 100–200 ms |
+| Reranker (top-50) | 100–300 ms | 500 ms–1 s |
+| LLM generation | 1–3 s | 5–10 s |
+| **End-to-end** | **1.5–4 s** | **6–12 s** |
+
+Stream the generation — users forgive slow starts but not frozen UIs.
+
+### Failure modes
+
+- **No-hit retrieval** — query is out-of-distribution; vector search returns semantically unrelated chunks. Mitigation: set a similarity-score floor and fall back to "I don't know" or hybrid keyword search.
+- **Chunk boundary cutoff** — answer spans two chunks, neither contains the full context. Mitigation: overlap chunks by 10–20%.
+- **Stale index** — source docs updated, index not re-embedded. Mitigation: track `source_doc_version` in metadata; delta-re-embed on change.
+- **Embedding model swap** — if you change the embedder, you must re-embed *everything*. Pin the embedding model version.
+- **Prompt injection via retrieved content** — malicious content in your corpus hijacks the model. Treat retrieved text as untrusted input; sanitize and wrap in clear delimiters.
+- **"Lost in the middle"** — top-ranked chunk buried between filler chunks gets ignored. Put the highest-ranked chunk first *and* last.
+
+### What to monitor
+
+- **Recall@k** and **MRR** on a golden query set (offline, run in CI).
+- **Retrieval similarity score distribution** — a leftward shift signals drift or index rot.
+- **End-to-end p50/p95** broken down by stage (retrieval vs generation).
+- **No-hit rate** (queries where top score < threshold) — early signal of corpus gaps.
+- **Cost per query** and **$/day** — watch output-token spikes on long retrieved contexts.
+- **Answer quality** via LLM-as-judge on a sampled 1–5% of traffic ([evals.md](evals.md)).
+
+See [../ml-ops/vector-databases.md](../ml-ops/vector-databases.md) for storage choices and [../ml-ops/llm-observability.md](../ml-ops/llm-observability.md) for tracing the full pipeline.
+
+---
+
 ## Related Concepts (The Map)
 
 | If you know... | RAG concept is like... |

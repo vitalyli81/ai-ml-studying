@@ -509,6 +509,60 @@ const result = await generateText({
 
 ---
 
+## Production Notes
+
+### Cost — agents multiply token spend
+
+An agent turn is *N* model calls plus the tool output tokens from each. Rule of thumb:
+
+```
+cost/user_request ≈ (avg_steps × avg_input_tokens × in_price +
+                     avg_steps × avg_output_tokens × out_price +
+                     total_tool_output_tokens × in_price) / 1M
+```
+
+**Worked example** — customer support agent, Sonnet, 3 tool calls avg, 4K input/800 output per step, tools return 500 tokens each:
+- Per request: `3 × (4000 × $3 + 800 × $15 + 500 × $3) / 1M ≈ $0.077`
+- 10K requests/day → **~$23K/month**. A single-shot Sonnet call for the same task would be ~$3K/month. Agents are 5–10× more expensive than one-shot calls.
+
+**Cost levers, biggest first:**
+1. Cap max steps (most loops don't need >5).
+2. Route: use Haiku for tool-call decisions, Sonnet/Opus only for the final synthesis.
+3. Cache the stable system prompt (tool definitions + role) across steps.
+4. Trim tool outputs before feeding back (summarize long API responses).
+
+### Latency (p50 / p95)
+
+| Config | p50 | p95 |
+|--------|-----|-----|
+| 1 tool call + final answer | 3–6 s | 10–15 s |
+| 3–5 tool calls | 8–20 s | 30–60 s |
+| Long-running research (10+ steps) | 30 s–2 min | 2–5 min |
+
+Stream intermediate tool calls to the UI (`"Searching docs..."`, `"Found 3 results, checking..."`) — silence kills UX.
+
+### Failure modes
+
+- **Infinite loop** — agent repeats the same tool call with the same args. Mitigation: max-steps cap (hard), dedupe identical consecutive calls (soft).
+- **Hallucinated tool args** — model invents a field the schema doesn't have. Mitigation: strict JSON schema validation; on failure, return the validation error *to the model* so it retries correctly.
+- **Tool failure cascades** — external API returns 500; agent panics or loops. Mitigation: pass the error text back to the model; it can often recover or decide to stop.
+- **Prompt injection via tool output** — retrieved content contains "ignore previous instructions." Mitigation: wrap tool outputs in clear delimiters, and never let tool output change the system prompt.
+- **Destructive action mis-fires** — agent deletes the wrong thing. Mitigation: dry-run mode, explicit user confirmation for writes, allow-list of safe tools.
+- **Cost runaway** — one buggy prompt puts 10K agents into long loops. Mitigation: per-request budget cap (max $0.50) that hard-stops the loop.
+
+### What to monitor
+
+- **Avg steps per request** and **p95 steps** — sudden rise = loop bug.
+- **Tool-call success rate** per tool (404s, 5xx, schema fails).
+- **Cost per agent run** (p50 and p95) with an alert on p99 spikes.
+- **Human-override rate** — fraction of agent outputs the user rejects/edits.
+- **Task-completion rate** on a golden set, via LLM-as-judge ([evals.md](evals.md)).
+- **Schema-validation failure rate** per tool.
+
+See [mcp.md](mcp.md) for the standard tool protocol, [../ml-ops/safety-guardrails.md](../ml-ops/safety-guardrails.md) for injection defense, and [../ml-ops/reliability-patterns.md](../ml-ops/reliability-patterns.md) for retries and budget caps.
+
+---
+
 ## Related Concepts (The Map)
 
 | If you know... | Agent concept is like... |
