@@ -25,6 +25,64 @@ Logistic regression is a linear decision boundary: "I draw a straight line; ever
 
 ---
 
+## Build the Intuition From Zero
+
+Three things trip people up: **why the sigmoid has that weird `e^(-z)` shape, what "log-odds" actually means, and why the loss uses a logarithm.** Let's earn all three before touching formulas.
+
+### Idea 1: From "odds" to "log-odds" (the secret the name hides)
+
+You already understand **odds** from gambling. "3 to 1 odds" means 3 ways to win for every 1 way to lose:
+
+```
+probability of winning = 0.75   →  odds = 0.75 / 0.25 = 3   ("3 to 1")
+probability = 0.5               →  odds = 0.5 / 0.5   = 1   (even)
+probability = 0.25              →  odds = 0.25 / 0.75 ≈ 0.33
+```
+
+Notice the problem: probability lives in `[0, 1]`, but a straight line `w·x + b` can output *any* number from −∞ to +∞. They don't match. Odds help a little (they go from 0 to +∞), but still can't go negative.
+
+The fix: take the **logarithm of the odds** — the "log-odds," also called the **logit**. Logarithms turn the range `(0, +∞)` into `(−∞, +∞)`:
+
+```
+probability   odds    log-odds (logit)
+   0.5         1         log(1)  =  0      ← even odds sit at zero
+   0.75        3         log(3)  ≈ +1.1    ← favoring class 1 → positive
+   0.25        0.33      log(.33)≈ −1.1    ← favoring class 0 → negative
+   0.99        99        log(99) ≈ +4.6    ← very confident → big positive
+```
+
+> 💡 **The big reveal:** log-odds can be *any* real number — exactly the range a straight line produces. So logistic regression just sets `log-odds = w·x + b`. That's it. It's linear regression, but predicting log-odds instead of a raw value. "Regression of the log-odds" is literally why it's called regression.
+
+### Idea 2: The sigmoid is just that, run backwards
+
+If `log-odds = z` (where `z = w·x + b`), then to *get the probability back* you undo the two steps — undo the log, undo the odds division. Do that algebra and you get **exactly** the sigmoid:
+
+```
+   z = log(odds)                        ← what the model outputs
+   odds = e^z                           ← undo the log (e^ cancels log)
+   probability = odds/(1+odds) = e^z/(1+e^z) = 1/(1+e^(-z))   ← the sigmoid!
+```
+
+So the sigmoid's "weird" `e^(-z)` shape isn't arbitrary — **it's the only function that converts log-odds back into a probability.** The S-curve is forced by the math, not chosen for looks.
+
+### Idea 3: Why the loss takes a logarithm
+
+We want a loss that's gentle when the model is right and *brutal* when it's confidently wrong. Watch what `−log(p)` does as the predicted probability `p` of the correct answer changes:
+
+```
+model said correct class with probability p:
+  p = 0.99  → −log(0.99) ≈ 0.01   "basically right, barely penalized"
+  p = 0.50  → −log(0.50) ≈ 0.69   "coin flip, moderate penalty"
+  p = 0.01  → −log(0.01) ≈ 4.6    "confidently WRONG, huge penalty"
+  p → 0     → −log(p) → ∞         "certain and wrong → infinite penalty"
+```
+
+The logarithm is what makes the penalty shoot toward infinity as the model gets confidently wrong. That's the behavior we want — it teaches the model to never be sure unless it's actually right. That's why it's called **log** loss.
+
+Now every formula below — sigmoid, log-odds interpretation of weights, log loss — should feel inevitable rather than magic.
+
+---
+
 ## Why It Exists
 
 ### The Problem
