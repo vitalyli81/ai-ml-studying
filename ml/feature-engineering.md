@@ -26,6 +26,62 @@ A Michelin chef with bad ingredients still makes a bad meal. Same with ML.
 
 ---
 
+## Build the Intuition From Zero
+
+Feature engineering is a bag of techniques, but two ideas cause more silent bugs than anything else: **why you can't just number your categories, and why "fit on train, transform on test" is sacred.** Get these two and you'll avoid the mistakes that quietly wreck real projects.
+
+### Idea 1: Numbering categories lies to the model
+
+You have a `color` column: red, blue, green. The obvious move — `red=1, blue=2, green=3` — is a trap. Watch what the model now believes:
+
+```
+red=1, blue=2, green=3
+              ↑
+   the model does MATH on these numbers:
+   "green (3) > blue (2) > red (1)"        ← you invented a ranking!
+   "the average of red and green is blue"  ← (1+3)/2 = 2 = blue. Nonsense.
+   "green is 3× red"                        ← also nonsense
+```
+
+Colors have no order, no midpoint, no multiples — but the integers you assigned scream all three. A linear model or KNN will faithfully act on this fiction and learn garbage.
+
+The fix is **one-hot encoding**: give each category its own yes/no column, so no fake ordering can sneak in:
+
+```
+            is_red  is_blue  is_green
+  red    →    1       0        0
+  blue   →    0       1        0
+  green  →    0       0        1
+   → every category is equidistant from every other. No invented ranking. ✓
+```
+
+> 💡 **The rule:** if the categories have a *real* order — `small < medium < large` — then numbering them `1,2,3` (ordinal encoding) is correct, because the order is true. If they don't — colors, cities, payment methods — use one-hot. The question is always: *does arithmetic on these numbers mean anything?*
+
+### Idea 2: Why "fit on train, transform on test" is sacred (data leakage)
+
+Every transformation that *learns something from the data* — the mean for filling missing values, the min/max for scaling, the categories for encoding — must learn it from the **training set only**, then apply that frozen knowledge to the test set. Mixing them is **data leakage**, and it silently inflates your score.
+
+Here's the leak in action with scaling:
+
+```
+WRONG — scale using all the data at once:
+  the scaler peeks at the test set's values to compute the mean/range
+  → test information has bled into training
+  → your evaluation looks great, then production is worse. You won't know why.
+
+RIGHT — fit on train, apply to test:
+  scaler.fit(X_train)        ← learn mean & range from TRAINING data only
+  scaler.transform(X_train)  ← apply it
+  scaler.transform(X_test)   ← apply the SAME frozen numbers to test
+  → test set stays a true "unseen" exam
+```
+
+The mental model: **the test set is a final exam.** Any statistic you compute from it is like peeking at the exam while studying — your practice scores soar and mean nothing. This is exactly why scikit-learn separates `.fit()` from `.transform()`, and why wrapping steps in a `Pipeline` (shown later) is the safe default — it makes leakage almost impossible by construction.
+
+The encoding, scaling, and imputation sections below are the specific tools; these two principles govern all of them.
+
+---
+
 ## Why It Exists
 
 ### The Problem Before

@@ -24,6 +24,65 @@ Mapping:
 
 ---
 
+## Build the Intuition From Zero
+
+Two things confuse people here: **where Bayes' Theorem comes from (it looks like a magic formula) and why a positive test for a rare disease still means you're probably fine.** Let's build both from plain counting — no formula memorization.
+
+### Idea 1: Bayes' Theorem is just "count the right group"
+
+Forget the formula. Imagine **10,000 people**, and a disease that 1% have. The test is 90% accurate. Someone tests positive — do they have it? Let's just *count*:
+
+```
+                        10,000 people
+                       /             \
+              100 have it          9,900 don't
+             (1% of 10,000)       (the other 99%)
+              /        \            /         \
+        90 test +    10 test −   990 test +   8,910 test −
+        (90% caught) (missed)   (10% false alarm on the healthy!)
+```
+
+Now look at everyone who tested positive: `90 + 990 = 1,080` people. Of those, only **90 actually have the disease.**
+
+```
+P(sick | tested positive) = 90 / 1,080 ≈ 8.3%
+```
+
+**Surprise:** a positive test on a "90% accurate" test means only an ~8% chance of being sick — because the disease is so rare that false alarms from the huge healthy group outnumber the true catches. That's the whole point of Bayes: **the rarity of the class (the prior) matters as much as the test result.**
+
+### Idea 2: The formula is just that counting, written in symbols
+
+Every piece of Bayes' Theorem maps to a number in the tree above:
+
+```
+P(sick | positive) =  P(positive | sick) × P(sick)   ÷   P(positive)
+                            ↑                  ↑                ↑
+                     90% (test catches    1% (the rare      10.8% (1,080 of
+                      the sick)            prior)             10,000 test +)
+
+                   =      0.90       ×    0.01     ÷    0.108    ≈  0.083  ✓
+```
+
+- **Prior** `P(sick)` = what you believed *before* the test (1% — just the base rate).
+- **Likelihood** `P(positive | sick)` = how the evidence behaves *if* the hypothesis is true (a sick person tests positive 90% of the time).
+- **Evidence** `P(positive)` = how often the evidence happens *at all* (the bottom — just makes the answer a proper fraction).
+- **Posterior** `P(sick | positive)` = your updated belief *after* seeing the evidence.
+
+> 💡 **Bayes in one line:** start with how common the class is (prior), multiply by how well the evidence fits that class (likelihood), and you get the updated belief (posterior). For classification we compare this number across classes and pick the biggest — so the bottom `P(evidence)` is the same for every class and we can ignore it.
+
+### Idea 3: Naive Bayes = do this with many clues at once
+
+A spam email isn't one test — it's hundreds (one per word). The "naive" shortcut says: treat each word as its own independent test and **multiply** their likelihoods, exactly like multiplying probabilities of independent coin flips:
+
+```
+P(spam | "free", "money", "now")  ∝  P(spam) × P("free"|spam) × P("money"|spam) × P("now"|spam)
+                                       prior      one clue         next clue        next clue
+```
+
+Then do the same for "not spam," and whichever product is bigger wins. That's it — Bayes' counting, repeated once per word, multiplied together. The sections below just put names (Laplace smoothing, log probabilities, variants) on the practical fixes that keep this multiplication from breaking.
+
+---
+
 ## Why It Exists
 
 ### The Problem

@@ -25,6 +25,57 @@ The key difference: the algorithm decides what questions to ask and in what orde
 
 ---
 
+## Build the Intuition From Zero
+
+The tree-as-flowchart idea is easy. The part that feels like magic is: **how does the algorithm know which question to ask first?** Nobody told it "ask about income before credit score." Let's derive that decision by hand — it's just "which question sorts the marbles cleanest."
+
+### Idea 1: A good question separates the classes; a bad one doesn't
+
+You have 10 loan applicants — 5 repaid (✓), 5 defaulted (✗) — all jumbled together. You can ask **one** yes/no question to split them. Which question is better?
+
+```
+Question A: "Income > $50k?"          Question B: "Owns a red car?"
+   YES → ✓✓✓✓✗   NO → ✗✗✗✗✓             YES → ✓✓✗✗✗   NO → ✓✓✓✗✗
+        (mostly repaid)(mostly default)        (still a mess)(still a mess)
+   → cleanly sorted! GOOD QUESTION         → barely changed anything. USELESS
+```
+
+Question A is great because each resulting group is now *mostly one class* — you've made progress. Question B left both groups as mixed as before. **The tree's entire training job is to try every possible question and keep the one that sorts cleanest.** It's that simple — the only thing missing is a number to measure "cleanness."
+
+### Idea 2: Gini impurity is the "messiness score"
+
+We need to turn "how mixed is this group?" into a number so the computer can compare questions. That number is **Gini impurity**, and it has one job: **0 means pure (all one class), bigger means more mixed.**
+
+Here's the intuition behind the formula `Gini = 1 − (p₁² + p₂² + …)`, where `p` is each class's fraction of the group:
+
+```
+all one class:   fractions (1.0, 0.0)  → 1 − (1.0² + 0²)     = 1 − 1.0  = 0.0  ✓ pure
+50/50 mix:       fractions (0.5, 0.5)  → 1 − (0.5² + 0.5²)   = 1 − 0.5  = 0.5  ✗ messiest
+80/20 mix:       fractions (0.8, 0.2)  → 1 − (0.64 + 0.04)   = 1 − 0.68 = 0.32 (in between)
+```
+
+Why squaring? Squaring a fraction rewards *dominance*. When one class dominates (0.8), its square (0.64) is large, so `1 − that` is small → low messiness. When it's an even mix, no class dominates, the squares stay small, and the messiness score stays high. The formula is just a clean way to say "reward groups that are lopsided toward one class."
+
+### Idea 3: Pick the question with the biggest drop in messiness
+
+Now combine the two ideas. To score a question, compute the messiness *before* the split, then the (weighted) messiness *after*, and take the **drop**. That drop is called **information gain** — bigger drop = better question:
+
+```
+Before:  10 applicants, 5✓/5✗   → Gini = 0.5  (maximally messy)
+
+Question A splits into two near-pure groups → average Gini after ≈ 0.32
+   drop = 0.5 − 0.32 = 0.18   ← big improvement → tree picks this
+
+Question B splits into two still-messy groups → average Gini after ≈ 0.48
+   drop = 0.5 − 0.48 = 0.02   ← barely helped → tree rejects this
+```
+
+> 💡 **The whole training algorithm in one sentence:** at each node, try every feature and every threshold, compute the drop in Gini impurity for each, and pick the split with the biggest drop. Then repeat inside each child group until the groups are pure (or you hit a depth limit). The "20 questions" order isn't designed by a human — it falls out of always asking the most-clarifying question next.
+
+The sections below formalize Gini, entropy (a near-identical alternative), and the overfitting that happens when you let the tree keep asking questions until every leaf is perfectly pure.
+
+---
+
 ## Why It Exists
 
 ### The Problem Before

@@ -25,6 +25,38 @@ The algorithm's only job: find the slope and intercept that minimize prediction 
 
 ---
 
+## Build the Intuition From Zero
+
+The one thing that feels like magic here is **"the model learns the line by itself."** How? Let's watch a line physically tighten onto two data points, by hand, so "learning" stops being a black box.
+
+Say we have just two houses and we're learning `price = w × sqft` (ignore the intercept for a moment). Truth: a 1000 sqft house costs $200k, so the perfect `w` is 200 (price in $k). We don't know that yet — we **start with a random guess** and let the errors push us toward it:
+
+```
+Start:  w = 100   ("I think it's $100/sqft")
+        predict 1000 sqft → 100×1000... in $k that's a guess of $100k
+        actual is $200k → we're $100k too LOW
+        → the error says "w is too small, push it UP"
+
+Step 1: nudge w up a little        → w = 140   (prediction now $140k, error $60k, smaller)
+Step 2: still too low, nudge up     → w = 175   (error $25k)
+Step 3: nudge up                    → w = 192   (error $8k)
+Step 4: nudge up                    → w = 198   (error $2k)
+...the nudges shrink as the error shrinks, until...
+        w ≈ 200   (error ≈ 0)  ← the line has "learned" the data
+```
+
+That's the entire learning process. Three things to notice — they're the whole rest of the doc:
+
+- **The sign of the error tells you which way to move `w`.** Too low → increase; too high → decrease. (That's the *gradient*.)
+- **The size of each nudge** is the **learning rate** — too big and you overshoot past 200 and bounce; too small and it takes forever.
+- **What counts as "the error"** — we square it so big misses scream louder than small ones. (That's **MSE**, the loss.)
+
+> 💡 **"Training a model" = this loop, repeated.** Start with a random line, measure how wrong it is, nudge the weights in the direction that reduces the error, repeat until it stops improving. Every model in this folder — and every neural network — is a fancier version of this exact loop.
+
+The concepts below (MSE, gradient descent, learning rate) just name the three pieces you just watched.
+
+---
+
 ## Why It Exists
 
 ### The Problem Before

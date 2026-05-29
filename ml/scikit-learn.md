@@ -26,6 +26,64 @@ You swap `LinearRegression()` for `RandomForestClassifier()` and nothing else in
 
 ---
 
+## Build the Intuition From Zero
+
+The single thing that confuses every sklearn beginner: **`fit` vs `transform` vs `fit_transform`, and why you `fit_transform` the training data but only `transform` the test data.** Once this clicks, the whole library makes sense. Let's nail it.
+
+### Idea 1: `fit` = learn, `transform` = apply
+
+Think of any preprocessing step (like a scaler) as a **student learning a rule, then applying it**:
+
+```
+.fit(data)        → "STUDY this data and memorize what you need"
+                    (a scaler computes the mean & spread; an encoder memorizes the categories)
+                    → learns, changes nothing, returns nothing useful
+
+.transform(data)  → "APPLY what you memorized to transform this data"
+                    → uses the stored rule to actually convert the numbers
+
+.fit_transform(d) → just a shortcut for "study it, then immediately apply it" in one call
+```
+
+A scaler that standardizes to mean 0 needs to *know* the mean first. `fit` learns that mean; `transform` subtracts it. Two separate jobs.
+
+### Idea 2: Why train gets `fit_transform` but test gets only `transform`
+
+This is the rule people break, and it silently corrupts results. The rule:
+
+```
+scaler.fit_transform(X_train)   ← LEARN the mean/range from training data, AND apply it
+scaler.transform(X_test)        ← apply that SAME learned mean/range — do NOT re-learn
+```
+
+Why never `fit` on test? Because the test set is your **final exam** — the model must meet it as truly unseen data. If you `fit` the scaler on the test set, it peeks at the test values to compute *its* mean and range. That's **data leakage**: test information leaks into your preparation, your scores look great, and production quietly underperforms.
+
+```
+        TRAIN data                          TEST data
+   ┌────────────────────┐             ┌────────────────────┐
+   │  fit  → learn rule │── rule ────▶│  transform with the │
+   │  transform → apply │   carried   │  SAME rule (no peek)│
+   └────────────────────┘   over      └────────────────────┘
+        the rule is learned ONCE, on train, then frozen and reused
+```
+
+> 💡 **The mantra: "fit on train, transform on test."** The same logic governs scalers, encoders, imputers, PCA — anything that learns from data. (See [feature-engineering.md](feature-engineering.md) for why leakage is so damaging.)
+
+### Idea 3: Pipelines exist so you can't break that rule by accident
+
+Doing the fit/transform dance by hand for 5 preprocessing steps is error-prone — forget one `.transform()` on the test set and you've got a silent bug. A **Pipeline** chains the steps into one object that does the right thing automatically:
+
+```python
+pipe = Pipeline([('scaler', StandardScaler()), ('model', LogisticRegression())])
+pipe.fit(X_train, y_train)   # fit_transforms the scaler on train, then fits the model
+pipe.predict(X_test)         # transforms X_test with the TRAIN-learned scaler, then predicts
+                             # → leakage is impossible by construction
+```
+
+That's why the doc keeps showing Pipelines — they're not a convenience, they're the guardrail. Everything below (the Estimator protocol, transformers, pipelines, GridSearchCV) is an elaboration of these three ideas.
+
+---
+
 ## Why It Exists
 
 ### The Problem Before

@@ -27,6 +27,53 @@ Change K, change how many people you trust. Change the distance metric, change y
 
 ---
 
+## Build the Intuition From Zero
+
+KNN itself is the easiest algorithm in this folder. Two things still puzzle people: **what the distance formula's `√` and squares are actually doing, and why KNN mysteriously falls apart in "high dimensions."** Let's nail both.
+
+### Idea 1: "Distance" is just the ruler from grade-school geometry
+
+The scary formula `d = √((x₁−x₂)² + (y₁−y₂)²)` is the **Pythagorean theorem** — the same `a² + b² = c²` you already know. To measure how far apart two points are, you walk the horizontal gap, walk the vertical gap, and the straight-line distance is the hypotenuse:
+
+```
+        • point B (4, 4)
+        │
+   2.0  │  ← vertical gap (y₂−y₁) = 4−2 = 2
+        │
+  •─────┘
+point A    horizontal gap (x₂−x₁) = 4−1 = 3
+(1, 2)
+
+  d = √(3² + 2²) = √(9+4) = √13 ≈ 3.6
+```
+
+That's all the formula says: **square each gap, add them, take the square root.** With 5 features instead of 2, you just have 5 gaps to square and add — the picture is the same, you simply can't draw it. "Nearest neighbor" = smallest `d` = the point with the least total gap across all features.
+
+> 💡 Why square then square-root instead of just adding the gaps? Squaring makes all gaps positive (a gap of −3 and +3 are equally far) and the square root puts the answer back in the original units. It's the honest "as the crow flies" distance.
+
+### Idea 2: Why high dimensions break KNN (the "curse")
+
+KNN's whole bet is that *some neighbors are close and others are far*. In high dimensions that bet collapses — here's the concrete reason.
+
+Imagine points scattered in a unit cube. In **1 dimension** (a line), two random points are often close. Add **more dimensions**, and for two points to be "close" they must happen to be close in *every single one* of those dimensions at once — which gets vanishingly unlikely:
+
+```
+ 2 features:  points differ in 2 ways    → some pairs genuinely close
+20 features:  must match on all 20 ways  → almost every pair is "medium-far"
+200 features: nearest point is barely closer than the farthest point
+```
+
+```
+distance to nearest neighbor   ≈   distance to farthest neighbor
+        └──────────────── in high-D these become nearly equal ────────────────┘
+```
+
+When the closest and farthest points are about the same distance away, "the 5 nearest" is basically a random handful — and voting with random neighbors is useless. **That's the curse of dimensionality:** distance stops meaning similarity. The fix is to shrink the dimensions first (see [pca.md](pca.md)) or use a model that doesn't rely on distance at all.
+
+Now the distance-metric and curse-of-dimensionality sections below are putting names on these two pictures.
+
+---
+
 ## Why It Exists
 
 ### The Problem
