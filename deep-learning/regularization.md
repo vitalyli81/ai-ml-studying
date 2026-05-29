@@ -131,7 +131,7 @@ Without dropout:           With dropout (p=0.3):
 All neurons active          30% randomly disabled (different each step)
 ```
 
-**Technical explanation:** During training, each neuron has probability `p` of being set to 0 for that forward pass. At inference, all neurons are active but outputs are scaled by `(1-p)` to maintain the same expected magnitude.
+**Technical explanation:** During training, each neuron has probability `p` of being set to 0 for that forward pass, and the kept neurons are scaled up by `1/(1-p)` to maintain the same expected magnitude (this is "inverted dropout," what PyTorch uses). At inference (`model.eval()`), dropout is disabled entirely — every neuron passes through unchanged, with no scaling.
 
 ```python
 nn.Dropout(p=0.3)   # 30% of neurons zeroed per forward pass
@@ -454,7 +454,7 @@ train=65%, val=64% → underfitting → bigger model, train longer
 
 2. The output layer produces probability distributions (via softmax) or raw scores for your classes. Applying dropout here randomly zeros class scores, corrupting the probability distribution and making predictions meaningless. Regularization on the output directly harms task performance — apply it only to hidden representations.
 
-3. `model.eval()` completely disables dropout — all neurons are active for every forward pass. During training, each neuron has probability `p` of being zeroed. During eval, all neurons contribute with their weights scaled by `(1-p)` to match the expected activation magnitude from training (PyTorch handles this scaling automatically).
+3. `model.eval()` completely disables dropout — all neurons are active for every forward pass, with no scaling applied. During training, each neuron has probability `p` of being zeroed, and the kept neurons are scaled up by `1/(1-p)` to match the expected activation magnitude (inverted dropout, which PyTorch handles automatically).
 
 4. Weight decay adds `λ × Σ(w²)` to the total loss. Since the optimizer minimizes total loss, it now has an incentive to keep weights small. In PyTorch: `torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=0.01)` — the `weight_decay=0.01` parameter applies the penalty; you don't modify the loss function yourself.
 

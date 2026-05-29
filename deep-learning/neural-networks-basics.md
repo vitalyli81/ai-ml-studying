@@ -272,7 +272,7 @@ class HousePriceNet(nn.Module):
 model = HousePriceNet()
 total_params = sum(p.numel() for p in model.parameters())
 print(f"Learnable parameters: {total_params}")
-# 2×16+16 + 16×8+8 + 8×1+1 = 297 parameters
+# 2×16+16 + 16×8+8 + 8×1+1 = 48 + 136 + 9 = 193 parameters
 ```
 
 ### Full Training Loop

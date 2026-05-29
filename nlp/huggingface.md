@@ -189,7 +189,7 @@ Step 5: Configure training
       num_train_epochs=3,
       learning_rate=2e-5,        ← small LR: preserve pretrained knowledge
       per_device_train_batch_size=16,
-      evaluation_strategy="epoch",
+      eval_strategy="epoch",     # renamed from evaluation_strategy in transformers 4.41+
   )
 
 Step 6: Train
@@ -341,7 +341,7 @@ print(pipe("This movie was absolutely brilliant!"))
 
 ❌ **Not using `batched=True` in `.map()`** → ✅ `dataset.map(tokenize)` processes one example at a time — slow. `dataset.map(tokenize, batched=True)` processes batches — 10-100x faster.
 
-❌ **Checking model performance only on training data** → ✅ Always evaluate on a held-out test set. Trainer's `evaluation_strategy="epoch"` does this automatically. Never trust train accuracy alone.
+❌ **Checking model performance only on training data** → ✅ Always evaluate on a held-out test set. Trainer's `eval_strategy="epoch"` does this automatically. Never trust train accuracy alone.
 
 ---
 

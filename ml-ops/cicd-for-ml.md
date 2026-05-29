@@ -372,6 +372,7 @@ jobs:
       - uses: actions/checkout@v3
       
       - name: Train model
+        id: train
         env:
           WANDB_API_KEY: ${{ secrets.WANDB_API_KEY }}
         run: python scripts/train.py --config configs/training.yaml
@@ -380,8 +381,10 @@ jobs:
         run: |
           python scripts/evaluate.py \
             --candidate ${{ steps.train.outputs.model_path }} \
-            --baseline "models:/sentiment@production" \
+            --baseline sentiment \
             --min-improvement 0.005  # Must be at least 0.5% better
+            # --baseline is a bare model name; evaluate.py builds the
+            # full "models:/<name>@production" URI itself.
       
       - name: Register model
         if: success()

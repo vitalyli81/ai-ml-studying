@@ -136,7 +136,7 @@ Input z → Output probability:
             0
 ```
 
-**Common misconception:** The output is a prediction, not a probability. The output IS a probability. It's the model's confidence that the input belongs to class 1.
+**Common misconception:** People treat the sigmoid output as a hard yes/no prediction. It's actually a probability — the model's confidence (between 0 and 1) that the input belongs to class 1. You only get a class prediction after applying a threshold (usually 0.5) to it.
 
 ---
 

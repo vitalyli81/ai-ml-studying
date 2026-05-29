@@ -372,7 +372,7 @@ print(classify_support_ticket("My payment didn't go through"))  # → billing
 
 ❌ **Setting temperature=0 for all tasks** → ✅ Temperature=0 for deterministic factual tasks (classification, extraction). Use 0.7 for balanced generation, 0.9+ for creative writing.
 
-❌ **Ignoring context window limits** → ✅ GPT-4 has 128K tokens. Claude has 200K. Exceeding the limit silently truncates the BEGINNING of your context — your system prompt might disappear.
+❌ **Ignoring context window limits** → ✅ GPT-4o has 128K tokens. Claude has 200K. Exceeding the limit makes the API reject the request with an error (it does not silently truncate) — count tokens and trim the oldest history yourself before sending.
 
 ❌ **Not stopping generation properly** → ✅ Without `max_tokens` or `stop` sequences, models may ramble. Always set `max_tokens`. Use `stop=["\n\n"]` for short answers.
 

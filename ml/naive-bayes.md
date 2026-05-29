@@ -223,7 +223,7 @@ from sklearn.naive_bayes import GaussianNB       # use for continuous numeric fe
 
 **One-line definition:** Instead of multiplying tiny probabilities (which causes numerical underflow), we add their logarithms.
 
-**Analogy:** Multiplying 1000 numbers that are each 0.01 = 10⁻²⁰⁰⁰ — a number so small no computer can represent it. Adding their logarithms instead: sum of log(0.01) for 1000 terms = -2000 × 1000 = -2000 (a perfectly normal number).
+**Analogy:** Multiplying 1000 numbers that are each 0.01 = 10⁻²⁰⁰⁰ — a number so small no computer can represent it. Adding their logarithms instead: sum of log(0.01) for 1000 terms = (-2) × 1000 = -2000 (a perfectly normal number).
 
 ```python
 # Naive: multiply probabilities (breaks for long documents)

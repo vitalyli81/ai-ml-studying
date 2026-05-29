@@ -143,7 +143,7 @@ weight = weight - learning_rate * gradient
 # If gradient is negative (error decreases as weight increases) → increase weight
 ```
 
-**Common misconception:** Gradient descent always finds the global minimum. For linear regression it does (the loss is convex — bowl-shaped). For neural networks, it only finds a local minimum, which is often good enough.
+**Common misconception:** Gradient descent always finds the global minimum. For linear regression it does (the loss is convex — a single U-shaped valley with one bottom). For neural networks, it only finds a local minimum, which is often good enough.
 
 ---
 
@@ -196,49 +196,61 @@ Lasso effectively does feature selection — it eliminates unimportant features.
 
 ## How It Actually Works (Step-by-Step)
 
-Let's predict house prices from scratch:
+Let's learn `price = w × sqft + b` from scratch, doing one full gradient
+descent step by hand with real numbers, then jumping to the converged model.
 
 ```
-Dataset:
-  Sqft  | Price
-  ──────────────
-  600   | 150,000
-  800   | 200,000
-  1000  | 250,000
-  1200  | 280,000
-  1500  | 350,000
+Dataset (n = 5):
+  Sqft (x) | Price (y)
+  ─────────────────────
+   600     | 150,000
+   800     | 200,000
+  1000     | 250,000
+  1200     | 280,000
+  1500     | 350,000
 
-Step 1: Initialize weights randomly
-  w = 0,  b = 0
+Step 1 — Initialize the weights
+  w = 0,  b = 0          ← a flat line at zero; deliberately terrible
 
-Step 2: Make predictions with current weights
-  predicted = [0, 0, 0, 0, 0]   ← terrible
+Step 2 — Predict with the current line
+  ŷ = w·x + b = [0, 0, 0, 0, 0]
 
-Step 3: Compute MSE
-  errors = [150K, 200K, 250K, 280K, 350K]
-  MSE = 60 billion ← very bad
+Step 3 — Score it with MSE (how wrong are we?)
+  error = y − ŷ = [150K, 200K, 250K, 280K, 350K]
+  MSE = mean(error²)
+      = (150K² + 200K² + 250K² + 280K² + 350K²) / 5
+      ≈ 65.2 billion        ← huge, as expected for a zero line
 
-Step 4: Compute gradient (how to adjust w and b)
-  With errors = actual - predicted and sqft values x:
-  ∂MSE/∂w = -2 × avg(error × x) ≈ -544,000,000
-  ∂MSE/∂b = -2 × avg(error)     ≈     -492,000
-  (negative gradients mean: increasing w and b will reduce error)
+Step 4 — Compute the gradient (which way is downhill?)
+  ∂MSE/∂w = −2 · mean(error · x) = −2 · 272,200,000 ≈ −544,400,000
+  ∂MSE/∂b = −2 · mean(error)     = −2 · 246,000     ≈   −492,000
+  Both gradients are negative → MSE drops if we INCREASE w and b.
 
-Step 5: Update weights (tiny learning rate — the gradients are huge)
-  w = 0 - 1e-8 × (-5.44e8) ≈ 5.44
-  b = 0 - 1e-8 × (-4.92e5) ≈ 0.005
+Step 5 — Take one step downhill (subtract lr · gradient)
+  The gradients are enormous, so the learning rate must be tiny (1e-8):
+  w = 0 − 1e-8 · (−544,400,000) ≈ 5.44
+  b = 0 − 1e-8 · (−492,000)     ≈ 0.0049
 
-Step 6: Repeat steps 2-5 thousands of times
-  Each step nudges w and b toward values that reduce MSE.
-  (Gradient descent on raw features like this is slow — scaling the
-  features first makes convergence much faster in practice.)
+Step 6 — Did the loss actually go down? (re-score with the new line)
+  ŷ = 5.44·x + 0.0049
+  MSE ≈ 62.3 billion   ← down from 65.2B after a single step. It works.
 
-Step 7: Final model (after convergence)
-  Closed-form solution on this data: price ≈ 218 × sqft + 23,600
-  For 1100 sqft: price ≈ 218 × 1100 + 23,600 ≈ $263,000
+Step 7 — Repeat steps 2–6 thousands of times
+  Each pass nudges w and b further downhill until the MSE stops shrinking.
+  (Raw-feature gradient descent like this is slow because the two features
+  live on wildly different scales — standardizing them first makes it
+  converge in far fewer steps.)
 
-  (scikit-learn's LinearRegression uses the closed-form solution
-  directly — no iterative gradient descent needed for this loss.)
+Step 8 — The converged model
+  Solving exactly (the closed form) gives:
+    price ≈ 218.0 × sqft + 23,607      (R² ≈ 0.995 — a near-perfect fit)
+  Predict a 1100 sqft house:
+    price ≈ 218.0 × 1100 + 23,607 ≈ $263,400
+
+  (scikit-learn's LinearRegression jumps straight to this closed-form
+  solution — no iterative gradient descent needed for plain MSE. Gradient
+  descent earns its keep when the dataset is too big to solve directly, or
+  when there's no closed form, like in neural networks.)
 ```
 
 ---
