@@ -22,6 +22,49 @@ Your phone's autocomplete suggests the next word based on the last few words you
 
 ---
 
+## Build the Intuition From Zero
+
+The thing that surprises people: **"just predicting the next word" somehow produces reasoning, code, and essays.** How does so simple a goal create something so capable? And what does "autoregressive" actually mean mechanically?
+
+### Idea 1: Generation = predict next token, append, repeat
+
+A GPT only ever does one thing: given the text so far, output a **probability for every possible next token**, pick one, stick it on the end, and feed the whole thing back in. That loop is **autoregressive** ("regressing on its own output"):
+
+```
+"The capital of France is"        → next-token probs: {"Paris":0.92, "a":0.01, ...} → pick "Paris"
+"The capital of France is Paris"  → next: {".":0.6, ",":0.2, ...}                    → pick "."
+"The capital of France is Paris." → next: {<end>:0.8}                                → stop
+```
+
+Each step it sees only what came before (the **causal mask** — it can't peek ahead, because the future doesn't exist yet). That's the one mechanical difference from [BERT](bert.md), which sees both directions.
+
+### Idea 2: Why "next word" forces real understanding
+
+Here's the leap. To predict the next word *well* across the entire internet, you can't just memorize — you're forced to learn whatever the text depends on:
+
+```
+"The murderer turned out to be the ___"   → must track the whole plot to fill this in
+"2 + 2 = ___"                              → must do arithmetic
+"def add(a, b): return ___"                → must understand code
+"The opposite of hot is ___"               → must know concepts
+```
+
+Predicting the next token in *all* human text means modeling the things that generate that text — facts, logic, syntax, cause and effect. Capability is a **side effect** of getting good at the prediction game on a hard enough dataset. Then a second phase (**RLHF**) nudges this raw predictor toward being helpful and following instructions rather than just continuing text.
+
+### Idea 3: The temperature dial — how it picks
+
+At each step the model has a *distribution* over next tokens. **Temperature** controls how boldly it samples:
+
+```
+temperature 0   → always take the most likely token   → deterministic, focused (good for code/facts)
+temperature 0.7 → sample, mild randomness              → natural, varied (good for chat/writing)
+temperature 1.5 → flatten the odds, take risks         → creative but often incoherent
+```
+
+> 💡 **One line:** a GPT just predicts the next token from everything before it, one at a time, in a loop — but doing that well across all human text forces it to learn facts and reasoning, and temperature tunes how predictable its choices are. As an AI engineer you mostly drive this via API + prompts; this is the engine under [prompt engineering](../llms/prompt-engineering.md) and [LLM fundamentals](../llms/llm-fundamentals.md).
+
+---
+
 ## 3. Why It Exists
 
 **The problem:** Before 2018, NLP models were task-specific — a spam classifier couldn't also do translation. Building every task required separate data collection, training, and deployment. Expensive and inflexible.

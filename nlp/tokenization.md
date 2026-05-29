@@ -21,6 +21,47 @@ A postal system doesn't ship entire cities — it breaks destinations into count
 
 ---
 
+## Build the Intuition From Zero
+
+The puzzle: **why "subword" tokenization, and how does the tokenizer decide where to split?** Why isn't it just "split on spaces"? Let's build the answer.
+
+### Idea 1: The two obvious approaches both fail
+
+```
+Split into WORDS:       "running" "cats" "antidisestablishmentarianism"
+   → vocabulary explodes to millions; every typo/rare word is "unknown" → model is blind to it.
+
+Split into CHARACTERS:  "r" "u" "n" "n" "i" "n" "g"
+   → tiny vocabulary, but sequences get huge and each piece carries almost no meaning.
+```
+
+Words give meaning but can't handle rare/new words. Characters handle anything but lose meaning and bloat length. **Subword** tokenization is the compromise that gets both: keep common words whole, break rare words into reusable pieces.
+
+```
+"running"  → ["running"]              (common → one token)
+"antidisestablishmentarianism" → ["anti","dis","establish","ment","arian","ism"]
+                                  (rare → known pieces, no "unknown" token needed)
+```
+
+### Idea 2: How it learns where to split (merge the frequent pairs)
+
+The tokenizer isn't hand-coded — it *learns* its vocabulary from a giant corpus by a dead-simple rule (this is **BPE**, byte-pair encoding):
+
+```
+1. Start with pure characters:  l o w   l o w e r   n e w e s t   w i d e s t
+2. Count adjacent pairs; merge the MOST FREQUENT one into a new token.
+       "e"+"s" appears a lot → merge into "es"
+3. Repeat thousands of times, each merge adding one token to the vocabulary:
+       "es"+"t" → "est"  ;  "l"+"o" → "lo"  ;  "lo"+"w" → "low"  ...
+4. Stop at a target vocab size (e.g. 50,000 tokens).
+```
+
+So frequent letter-sequences "graduate" into their own tokens. Common words end up as single tokens because their pieces kept getting merged; rare words stay as a handful of subword pieces. **The split points are wherever the learned merges run out** — that's why "running" is whole but a rare word fractures.
+
+> 💡 **One line:** subword tokenization keeps frequent strings whole and breaks rare ones into known pieces, learned by repeatedly merging the most common adjacent pair — giving a fixed vocabulary that can still encode *any* word, including ones it's never seen. This is also why token count ≠ word count, which drives [LLM cost and context limits](../llms/llm-fundamentals.md).
+
+---
+
 ## 3. Why It Exists
 
 **The problem:** Computers only understand numbers. "cat" is meaningless to a neural network.

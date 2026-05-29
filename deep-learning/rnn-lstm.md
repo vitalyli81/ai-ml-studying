@@ -30,6 +30,53 @@ items.reduce((state, item) => {
 
 ---
 
+## Build the Intuition From Zero
+
+Two things to truly get: **what the "hidden state" actually is, and why a plain RNN forgets — which is the entire reason LSTMs exist.**
+
+### Idea 1: The hidden state is a running summary
+
+Read this sentence one word at a time and, after each word, hold a single mental note that summarizes everything so far. That note is the **hidden state** `h`. The RNN updates it at every step: `new note = combine(old note, current word)`.
+
+```
+"The"   → h: "a sentence starts, subject coming"
+"cat"   → h: "subject is: cat (animal, singular)"
+"sat"   → h: "the cat is doing: sitting"
+"on"    → h: "...sitting on something, location coming"
+```
+
+The note has a fixed size — it doesn't grow with the sentence. So the RNN is constantly **cramming the whole past into one small summary** and overwriting it each step. That works for short sequences and is exactly the `reduce()` accumulator above.
+
+### Idea 2: Why plain RNNs forget (the squeeze)
+
+Because the same small note gets overwritten at every step, information from long ago gets diluted away — like a rumor passed down a line of 50 people. Worse, training makes it mathematically severe. Recall from [backpropagation.md](backpropagation.md) that gradients **multiply** back through every step:
+
+```
+20 steps back: gradient ≈ (0.6)²⁰ ≈ 0.00004  →  VANISHES
+  → the word from 20 steps ago receives essentially zero learning signal
+  → the RNN literally cannot learn long-range connections
+```
+
+So a plain RNN's memory fades after ~10 steps. "The clouds are in the ___" (easy, recent) it handles; "I grew up in France… [50 words]… I speak fluent ___" it can't, because *France* faded.
+
+### Idea 3: LSTM = a notebook with gates instead of one note
+
+The LSTM's fix: add a separate **cell state** — a notebook that information can ride along *unchanged* — plus three little **gates** (each a 0–1 dial, learned) that control it:
+
+```
+FORGET gate → "erase this from the notebook?"     (0 = wipe, 1 = keep)
+INPUT  gate → "write this new info to the notebook?"
+OUTPUT gate → "what part of the notebook do I reveal as the answer right now?"
+```
+
+Because relevant facts can sit on the notebook untouched (gate ≈ 1) instead of being overwritten every step, the gradient rides along that highway without vanishing — so LSTMs remember 100+ steps. That's the whole trick: **gates decide what to keep, write, and read**, replacing the RNN's blind overwrite.
+
+> 💡 **One line:** an RNN crams the past into one tiny note it overwrites each step (so it forgets); an LSTM adds a protected notebook with keep/write/read gates (so it remembers). And the *true* fix for long memory — letting every word look at every other word directly — is the Transformer ([transformers.md](transformers.md)), which is why this doc exists mostly to explain why Transformers won.
+
+The cell-state and gate sections below formalize these dials.
+
+---
+
 ## 3. Why It Exists
 
 **The problem:** Standard neural networks process each input independently — feed "cat" in position 1 and "cat" in position 50, and the network treats them identically. There's no way to represent that "the bank" means different things in "river bank" vs "bank account" depending on surrounding context.

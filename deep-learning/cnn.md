@@ -21,6 +21,51 @@ A car factory QA line has different cameras: one checks for dents, one checks pa
 
 ---
 
+## Build the Intuition From Zero
+
+The one idea to truly get is **convolution: what "sliding a filter" actually computes, and why sharing one small filter everywhere is the breakthrough.** Let's build it on a tiny grid.
+
+### Idea 1: A filter is a small pattern-matcher that slides
+
+A **filter** (or kernel) is a tiny grid of numbers — say 3×3 — that represents a pattern to look for, like a vertical edge. You slide it over every position of the image, and at each spot you **multiply-and-sum**: overlap the filter, multiply each pair, add them up. A big result means "the pattern is here."
+
+```
+Image patch (bright left, dark right)   Vertical-edge filter      Overlap, multiply, sum:
+   ┌──┬──┬──┐                              ┌──┬──┬──┐
+   │ 9│ 9│ 0│                              │+1│ 0│−1│           (9×1)+(9×0)+(0×−1)
+   │ 9│ 9│ 0│        slide over     ×      │+1│ 0│−1│      =    +(9×1)+(9×0)+(0×−1)
+   │ 9│ 9│ 0│                              │+1│ 0│−1│           +(9×1)+(9×0)+(0×−1)
+   └──┴──┴──┘                              └──┴──┴──┘           = 27  → "STRONG edge here!"
+```
+
+Slide the same filter to a flat region (all 9s) and the +1s and −1s cancel → result ≈ 0 → "no edge here." So one filter produces a **feature map**: a grid showing *where* its pattern appears in the image. Different filters detect different things; the network *learns* the filter numbers during training rather than you designing them.
+
+### Idea 2: Why sharing one filter is the whole point
+
+Here's the breakthrough. A dense network would learn a *separate* weight for every pixel position — millions of them — and a cat detector trained on cats in the top-left would have no idea what to do with a cat in the bottom-right. A CNN uses the **same small filter at every position**:
+
+```
+Dense layer:   a separate weight per pixel  → 150,000+ params, position-blind
+CNN filter:    ONE 3×3 filter reused everywhere → 9 params, finds the pattern ANYWHERE
+```
+
+This buys two huge things at once: **far fewer parameters** (9 numbers, not millions) and **translation invariance** (an edge detector works in every corner of the image, because it's literally the same detector slid everywhere). That's why CNNs scaled to real images when dense nets couldn't.
+
+### Idea 3: Stacking builds a hierarchy of meaning
+
+Stack convolution layers and the patterns compose — exactly the "simple parts → complex parts" idea from [neural-networks-basics.md](neural-networks-basics.md), but spatial:
+
+```
+Layer 1 filters → edges & color blobs      ("there's a diagonal line here")
+Layer 2 filters → corners, curves, texture (combinations of edges)
+Layer 3 filters → eyes, wheels, fur        (combinations of those)
+Layer 4+        → whole objects: "cat"
+```
+
+Early layers see tiny regions; deeper layers (after pooling shrinks the map) effectively see larger and larger areas, so the network goes from "edge" to "cat" through depth. The convolution, pooling, and feature-map sections below formalize these three ideas — and in practice you'll fine-tune a pretrained CNN ([transfer-learning.md](transfer-learning.md)) rather than learn all these filters yourself.
+
+---
+
 ## 3. Why It Exists
 
 **The problem:** A 224×224 RGB image has 150,528 pixel values. A fully-connected (dense) network's first layer connecting to 1024 neurons would need 154 million parameters — just for the first layer. Impossible to train efficiently. Also, a dense layer treats `pixel[0,0]` and `pixel[223,223]` as completely unrelated — it doesn't know they're spatially adjacent.

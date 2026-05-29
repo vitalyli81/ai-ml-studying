@@ -22,6 +22,48 @@ GPT reads a mystery novel page by page without being able to flip back. BERT rea
 
 ---
 
+## Build the Intuition From Zero
+
+The core idea: **what "bidirectional" really buys you, and how do you even train a model to read both directions at once?** That training trick (masking) is BERT's whole secret.
+
+### Idea 1: Why reading both directions matters
+
+GPT reads left-to-right, so when it's at a word it has only seen what came *before*. BERT sees the *whole* sentence, so each word is understood using context on **both sides**:
+
+```
+"I deposited cash at the bank."     left-to-right at "bank": knows "deposited cash" → leans money ✓
+"I sat on the bank of the river."   left context "I sat on the" alone is ambiguous;
+                                    but the words AFTER ("of the river") nail it → riverbank
+   → only a model that sees the RIGHT side too gets this reliably. That's bidirectionality.
+```
+
+For *understanding* tasks (classification, search, NER) you have the full text available, so why handicap yourself to one direction? BERT doesn't.
+
+### Idea 2: The training trick — fill in the blanks (masked language modeling)
+
+But there's a chicken-and-egg problem: if you train a model to predict the next word *and* let it see both directions, it can just peek at the answer. BERT's fix is brilliant and simple — **hide some words and make the model guess them from both sides**:
+
+```
+Input:  "The cat [MASK] on the warm [MASK]."
+Task:   guess the masked words using ALL surrounding context
+Model:  [MASK]₁ → "sat" (0.7), "slept" (0.2)   [MASK]₂ → "mat" (0.5), "rug" (0.3)
+```
+
+Predicting a blank from *both* directions can't be cheated, and to do it well the model must genuinely understand grammar, meaning, and world knowledge. Do this on billions of sentences (~15% of words masked) and BERT learns deep bidirectional understanding. It's literal fill-in-the-blank practice at internet scale.
+
+### Idea 3: The [CLS] token — a summary slot
+
+BERT prepends a special `[CLS]` token to every input. Because attention lets it absorb information from every other word, its final vector becomes a **summary of the whole sentence** — the handle you attach a classifier to:
+
+```
+[CLS] this movie was fantastic  →  [CLS] vector ──► tiny classifier ──► "positive" ✓
+  └── soaks up the whole sentence's meaning via attention ──┘
+```
+
+> 💡 **One line:** BERT reads both directions (better for *understanding*), is trained by guessing masked-out words so it can't cheat, and exposes a `[CLS]` summary slot you bolt task heads onto. Contrast with [gpt-decoder-models.md](gpt-decoder-models.md): BERT = reading comprehension (encoder), GPT = writing (decoder). Both are Transformers ([../deep-learning/transformers.md](../deep-learning/transformers.md)); they just differ in direction and training objective.
+
+---
+
 ## 3. Why It Exists
 
 **The problem:** Before BERT (2018), models processed text left-to-right, which meant they couldn't see the full context when processing a word. "I made her duck" — does "duck" mean the bird or the action? Left-to-right models only see "I made her" when they hit "duck."

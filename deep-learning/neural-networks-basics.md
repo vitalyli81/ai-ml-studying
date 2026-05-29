@@ -21,6 +21,41 @@ A car factory has stations: cut metal → weld frame → install engine → pain
 
 ---
 
+## Build the Intuition From Zero
+
+Before the formulas, let's earn the two ideas that make neural nets click: **what one neuron actually computes, and why stacking neurons with a "squish" in between is more powerful than any single equation.**
+
+### Idea 1: A neuron is just a weighted vote
+
+Forget "neuron" — it's a **voting machine**. It takes a few input numbers, decides how much each one matters (the weights), adds up the weighted votes, and produces one score.
+
+```
+Should I go outside?  Inputs:  is_sunny=1,  is_cold=1,  is_busy=0
+                      Weights: sunny +5,    cold −3,    busy −4   (how much each matters)
+
+  score = (1 × +5) + (1 × −3) + (0 × −4) + bias(−1)
+        =    +5     +   −3     +    0     +   −1     = +1   → leans YES
+```
+
+That's the entire `z = w₁x₁ + w₂x₂ + … + bias` formula below — a weighted sum of votes, plus a baseline lean (the bias). One neuron is literally [logistic regression](../ml/logistic-regression.md) you already met. The weights are what the network *learns*; they start random and get nudged until the votes produce good answers.
+
+### Idea 2: Why you need the "squish" (and why stacking matters)
+
+Here's the subtle part that most explanations skip. If every neuron only did weighted sums, then stacking 100 layers would be **pointless** — a sum of sums of sums is still just one big weighted sum. You'd have a fancy way to write a single straight line.
+
+```
+linear → linear → linear   collapses to   one linear        ← can only draw straight lines
+linear → SQUISH → linear → SQUISH → ...   stays genuinely deep ← can draw ANY shape
+```
+
+The fix is the **activation function** (the "squish") between layers — a tiny bit of bending applied to each neuron's score. Once you insert bends between the layers, stacking them lets the network compose simple bends into arbitrarily complex shapes — curves, corners, blobs. That's why a deep net can separate a spiral that no straight line ever could.
+
+> 💡 **The whole idea in one line:** a neuron is a weighted vote; an activation bends it; stacking bent layers lets the network build any shape it needs. Layer 1 learns tiny pieces (edges), layer 2 combines them (corners, textures), layer 3 combines those (eyes, wheels) — simple parts composing into complex understanding, all learned automatically.
+
+The neuron, layer, and activation sections below put precise names on these two ideas.
+
+---
+
 ## 3. Why It Exists
 
 **The problem:** Classical ML required you to manually engineer features — you had to decide what to look for (edges, colors, frequencies). For images or language, this was impossibly hard.

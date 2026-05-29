@@ -22,6 +22,49 @@ On a map, nearby coordinates = nearby places. In embedding space, nearby vectors
 
 ---
 
+## Build the Intuition From Zero
+
+The deep question: **where do the numbers come from?** Nobody sits down and assigns "cat = [0.2, −0.5, …]". How does a model learn that dog and puppy should be near each other? The answer is one famous idea.
+
+### Idea 1: "You shall know a word by the company it keeps"
+
+The trick that makes embeddings work: **a word's meaning is defined by the words that appear around it.** Look at the contexts:
+
+```
+"the ___ barked and wagged its tail"   → dog, puppy   (both fit)
+"the ___ purred on the windowsill"     → cat, kitten  (both fit)
+"the ___ launched into orbit"          → rocket       (cat/dog do NOT fit)
+```
+
+Words that show up in the *same kinds of slots* must mean similar things. So if a model is trained to **predict a word from its neighbors** (or neighbors from the word), it's forced to give "dog" and "puppy" similar internal numbers — because they need to make the same predictions. The embeddings are a *byproduct* of that prediction task: meaning falls out of "what context does this word live in."
+
+### Idea 2: The vector is just a learned lookup table, nudged by training
+
+Concretely, every word starts with a **random** vector in a big lookup table. During training, every time two words appear in similar contexts, gradient descent ([../ml/linear-regression.md](../ml/linear-regression.md)) nudges their vectors closer; words in different contexts drift apart:
+
+```
+start:  dog=[random]   puppy=[random]   rocket=[random]   (meaningless)
+        ... train on billions of sentences, nudging vectors by context ...
+end:    dog=[0.21,-0.4,...]  puppy=[0.19,-0.38,...]  rocket=[-0.7,0.6,...]
+              └── dog & puppy ended up close; rocket far away ──┘
+```
+
+The famous result of this: directions in the space encode *relationships*, so vector arithmetic works — `king − man + woman ≈ queen`. The model never learned that rule; it emerged from contexts.
+
+### Idea 3: Why modern embeddings are "contextual"
+
+Old embeddings (Word2Vec) gave each word **one fixed** vector — so "bank" had a single blurry vector averaging riverbank and money-bank. Modern embeddings (BERT, sentence-transformers) compute the vector **using the whole sentence** via attention ([../deep-learning/transformers.md](../deep-learning/transformers.md)):
+
+```
+"river bank"   → "bank" gets a vector near {water, shore}
+"bank account" → "bank" gets a DIFFERENT vector near {money, finance}
+   → same word, different numbers, because context now shapes the vector
+```
+
+> 💡 **One line:** embeddings are learned numbers where similarity-in-meaning becomes closeness-in-space, trained purely from the company words keep — and modern ones recompute that vector per sentence so meaning bends to context. This is the engine behind semantic search and [RAG](../llms/rag.md): embed the query, find the nearest vectors.
+
+---
+
 ## 3. Why It Exists
 
 **The problem:** Neural networks need numbers. "cat" means nothing to a matrix multiply.

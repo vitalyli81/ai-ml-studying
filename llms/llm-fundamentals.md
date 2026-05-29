@@ -24,6 +24,53 @@ They've read the entire internet, every book, every code repo. They can't look t
 
 ---
 
+## Build the Intuition From Zero
+
+Three things about LLMs constantly trip up engineers and lead to real bugs: **the model has no memory between calls, the "context window" is its only working memory, and "smart" doesn't mean "knows true facts."** Get these and you'll design AI features correctly.
+
+### Idea 1: Each API call is a blank slate — the model has no memory
+
+This is the #1 misconception. An LLM does **not** remember your last message. Every API call, it starts from total amnesia. A chatbot "remembers" the conversation only because **your code resends the entire history every time**:
+
+```
+You think:                          What actually happens on call #2:
+  Turn 1: "My name is Sam"            you send: [all of turn 1]  +  "What's my name?"
+  Turn 2: "What's my name?"           the model re-reads the WHOLE thing fresh, answers "Sam"
+  (model "remembers" Sam)             → it never stored anything; YOU replayed the transcript
+```
+
+So "memory" is an illusion you build by accumulating and resending text. This is why long chats get expensive (you resend more each turn) and why "it forgot what I said earlier" happens (the history fell out of the window — next idea).
+
+### Idea 2: The context window is the model's entire desk
+
+The **context window** is the maximum tokens the model can look at in one call — system prompt + your history + retrieved docs + its own reply, all of it. Picture a desk of fixed size:
+
+```
+┌──────────────── context window (e.g. 200,000 tokens) ─────────────────┐
+│ [system prompt] [conversation history] [retrieved RAG docs] [your Q] [room for the answer] │
+└────────────────────────────────────────────────────────────────────────┘
+   everything the model "knows right now" must fit on this desk.
+   Overflow → oldest stuff falls off the edge → "it forgot."
+```
+
+Everything the model reasons about must be *on the desk at once*. It can't "go look something up" elsewhere — if a fact isn't in the window (or in its trained weights), it doesn't exist to the model. This is exactly why [RAG](rag.md) exists: it *fetches* the right documents and places them on the desk before asking.
+
+### Idea 3: "Fluent" is not "correct" — why it hallucinates
+
+The model was trained to produce **plausible** next tokens, not **true** ones. When it doesn't know something, it doesn't stop — it generates the most likely-sounding continuation, which can be confidently wrong (a **hallucination**):
+
+```
+"The 2019 paper by Dr. Smith on quantum biology found..."
+   → the model has no such paper, but "<plausible finding>" is a likely continuation,
+     so it invents one, in the same confident tone as a true fact.
+```
+
+It's not lying — it has no concept of "I don't know" unless trained/prompted to. This is why production LLM features need grounding ([RAG](rag.md)), guardrails ([../ml-ops/safety-guardrails.md](../ml-ops/safety-guardrails.md)), and evals ([evals.md](evals.md)) — you can't trust fluency as truth.
+
+> 💡 **The engineer's mental model:** an LLM is a stateless function — `text in → text out` — with a fixed-size desk (context) and no built-in truth-checking. Memory, knowledge, and reliability are things *you* engineer around it, not properties it has. (The "predict next token → emergent skill" mechanism is in [../nlp/gpt-decoder-models.md](../nlp/gpt-decoder-models.md).)
+
+---
+
 ## Why It Exists (Problem → Solution)
 
 **The problem:** Earlier AI systems needed hand-crafted rules for each task. Want a translator? Engineer linguistic rules. Want a summarizer? Engineer summarization logic. It was brittle, expensive, and didn't generalize.

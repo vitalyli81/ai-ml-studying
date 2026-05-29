@@ -23,6 +23,40 @@ Training junior from scratch: great long-term investment, but takes months befor
 
 ---
 
+## Build the Intuition From Zero
+
+The thing to truly grasp: **why features transfer at all** — why a model trained on millions of random internet photos already "knows" something useful for *your* niche task of, say, spotting defective circuit boards.
+
+### Idea 1: Early layers learn universal building blocks
+
+Recall from [cnn.md](cnn.md) that a deep network learns a hierarchy: edges → textures → parts → objects. The punchline of transfer learning is **where in that hierarchy the task-specific knowledge lives**:
+
+```
+Layer 1-2:  edges, color blobs        ← IDENTICAL for cats, circuit boards, X-rays, anything
+Layer 3-4:  textures, simple shapes   ← still highly general
+Layer 5-6:  object parts (eyes, wheels)← somewhat specific
+Final layer: "this is a tabby cat"    ← ENTIRELY specific to the original task
+```
+
+Edges and textures are universal — *every* image is made of them, whether it's a cat or a cracked solder joint. A network spent a million images and days of GPU time learning to detect them well. That expensive, reusable knowledge is sitting in the early layers, and it's just as valid for your task. Why re-learn "what an edge looks like" from your 500 photos?
+
+### Idea 2: So you keep the bottom, replace the top
+
+The workflow falls right out of Idea 1: **keep the general early layers, throw away the task-specific final layer, bolt on a fresh one for your task:**
+
+```
+pretrained model:  [edges][textures][parts][cat-vs-dog head]   ← trained on millions of images
+                    └──────── keep (freeze) ───────┘  └ delete ┘
+your model:        [edges][textures][parts][defect-vs-OK head] ← train just this on YOUR 500 photos
+                    └─── reused, frozen ───┘         └ new, learns fast ┘
+```
+
+You're training a tiny new head on top of a powerful pre-built feature extractor — minutes instead of weeks, hundreds of examples instead of millions. Optionally you "unfreeze" the upper layers and nudge them gently (tiny learning rate, 1e-5) so the borrowed features adapt slightly to your domain — that's **fine-tuning**.
+
+> 💡 **One line:** the bottom of a trained network is generic vision/language knowledge that's expensive to learn and free to borrow; you keep it and only retrain the task-specific top. This is *the* default workflow in modern AI — you almost never train from scratch, whether it's a ResNet for images or an LLM for text ([../llms/fine-tuning-llms.md](../llms/fine-tuning-llms.md)).
+
+---
+
 ## 3. Why It Exists
 
 **The problem:** Training a competitive image model from scratch requires ImageNet (1.2M labeled images, 1000 classes) and days on 8 GPUs. Training a language model from scratch requires terabytes of text and thousands of GPU-hours. Most teams have neither.

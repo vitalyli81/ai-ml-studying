@@ -21,6 +21,40 @@ A student who memorizes every practice question (overfitting) aces the practice 
 
 ---
 
+## Build the Intuition From Zero
+
+The puzzle here: **why do the two main tricks — penalizing big weights, and randomly switching neurons off — actually force a model to generalize?** Both feel arbitrary until you see the mechanism.
+
+### Idea 1: Why small weights = a simpler, smoother model
+
+A weight measures how hard one input pushes the output. **Huge** weights mean the model reacts violently to tiny input changes — it's drawing a wildly wiggly curve that threads through every training point (including the noise). **Small** weights mean gentle reactions — a smooth curve that captures the trend and ignores the wiggles.
+
+```
+big weights:  output = 500·x₁ − 480·x₂ + ...   → spiky curve, contorts to hit every noisy point (overfit)
+small weights: output = 1.2·x₁ − 0.9·x₂ + ...  → smooth curve, follows the real trend (generalizes)
+```
+
+**Weight decay** (a.k.a. L2, built into AdamW) just adds "+ sum of squared weights" to the loss. Now the model pays a penalty for big weights, so it only grows a weight when the data really justifies it. The result is the smoothest curve that still fits — which is exactly what generalizes. It's the math version of "keep your notes brief."
+
+### Idea 2: Why dropout forces robustness
+
+**Dropout** randomly switches off a fraction of neurons on each training step. Why would crippling your own network help? Because it stops the network from relying on any single neuron:
+
+```
+Without dropout: neuron #7 becomes "the cat-whisker detector"; the whole prediction
+                 leans on it. If #7 misfires on new data → wrong answer. (fragile)
+
+With dropout:    #7 is randomly absent half the time, so other neurons MUST also
+                 learn whisker-ish cues. The knowledge gets spread out, redundant.
+                 → no single point of failure → robust on new data.
+```
+
+It's the "study with different friends each day" idea: if you can't depend on one specific friend always being there, you're forced to actually understand the material yourself. (It's also like an ensemble — each random subnetwork is a slightly different model, and you're averaging them.)
+
+> 💡 **One line:** weight decay keeps the model *smooth* (small reactions, ignores noise); dropout keeps it *robust* (no single neuron to lean on). Both attack overfitting from different angles, which is why you stack them. Early stopping and data augmentation (below) add two more angles.
+
+---
+
 ## 3. Why It Exists
 
 **The problem:** Neural networks are extremely high-capacity — a large network can memorize the entire training set, including noise and quirks specific to those examples. This is useless for making predictions on new data.

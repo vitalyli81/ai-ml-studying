@@ -22,6 +22,45 @@ A bad translator translates word-by-word as they hear it. A good translator list
 
 ---
 
+## Build the Intuition From Zero
+
+Two ideas to lock in: **why split the model into an encoder and a decoder, and what beam search (the quality knob `num_beams`) actually does.**
+
+### Idea 1: Encoder understands, decoder writes — and why that split helps
+
+A bad translator goes word-by-word and produces garbage because word order and meaning differ across languages. The seq2seq fix is a clean division of labor:
+
+```
+ENCODER: read the FULL input, build a rich understanding of its meaning
+            "I am hungry"  →  [meaning: speaker, present, needs food]
+DECODER: generate the output token by token FROM that meaning, looking back at the
+         input via attention as needed
+            [meaning] →  "J'"  →  "ai"  →  "faim"   (each word uses the meaning + what it wrote so far)
+```
+
+Separating "understand" from "produce" is what lets input and output differ in length, order, even language — the decoder isn't translating word-for-word, it's expressing the encoder's *meaning* freshly. (A decoder-only GPT is the same idea with the encoder fused in — which is why this architecture is GPT's ancestor.) **Attention** is the decoder glancing back at specific input words while it writes, so nothing important is forgotten.
+
+### Idea 2: Beam search — don't commit to the first word greedily
+
+When the decoder generates, picking the single highest-probability word at each step (**greedy**) can paint you into a corner — a great sentence might start with a slightly-less-likely word. **Beam search** keeps several candidate sentences alive at once and picks the best *overall*:
+
+```
+greedy (num_beams=1):   pick top word each step, never reconsider
+   "The" → "cat" → "was" ...  (locked in, even if a better whole sentence existed)
+
+beam search (num_beams=4): keep the 4 best partial sentences, extend all, prune to 4 again
+   "The cat..."   ┐
+   "A cat..."     ├─ extend each, keep the 4 highest-probability SENTENCES so far
+   "The feline..."│   → at the end, return the best complete one
+   "Cats..."      ┘
+```
+
+It's like planning a route by exploring 4 promising paths instead of always taking the next turn that looks best. More beams = better quality, slower generation.
+
+> 💡 **One line:** the encoder compresses the input into meaning, the decoder writes a new sequence from that meaning (consulting the input via attention), and beam search hedges across several candidate outputs so one greedy early choice can't ruin the result. Knobs: `max_length`/`min_length` control output size, `num_beams` controls the quality/speed trade.
+
+---
+
 ## 3. Why It Exists
 
 **The problem:** Some NLP tasks can't be solved by classification — the output isn't a label, it's new text. Summarizing an article can't output "sports" or "positive" — it must generate actual sentences.

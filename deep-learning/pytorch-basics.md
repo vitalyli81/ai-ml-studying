@@ -34,6 +34,42 @@ In React, you define components (reusable UI pieces), they receive props (data),
 
 ---
 
+## Build the Intuition From Zero
+
+PyTorch is mostly practical, but one thing feels like magic and shouldn't: **how `loss.backward()` knows the gradient of every weight without you ever writing calculus.** The answer is autograd, and it's simpler than it looks.
+
+### Idea 1: PyTorch secretly records every operation (the tape)
+
+As your `forward()` runs, PyTorch quietly writes down each math operation in order — like a security camera taping every step. This recording is the **computational graph**:
+
+```
+you write:        loss = ((w * x + b) − y) ** 2
+
+PyTorch records:  x ──┐
+                      ×──→ ──+──→ ──−──→ ──²──→ loss
+                  w ──┘     ↑      ↑
+                            b      y
+                  (it remembers every node and how they connect)
+```
+
+Any tensor you mark with `requires_grad=True` (all model parameters are, automatically) gets tracked. The graph is rebuilt fresh on every forward pass — that's the "dynamic" part that lets you use plain Python `if`/`for` inside a model.
+
+### Idea 2: backward() = replay the tape in reverse, multiplying
+
+When you call `loss.backward()`, PyTorch plays that tape **backwards**, applying the chain rule from [backpropagation.md](backpropagation.md) — multiplying local gradients along the way — to hand every tracked tensor its `.grad` (its share of the blame for the loss):
+
+```
+forward:   x, w, b ───────────────────────────→ loss     (build the tape)
+backward:  loss ─── chain-rule multiply back ──→ fills w.grad, b.grad   (.backward())
+then:      optimizer.step()  →  w −= lr * w.grad           (take the downhill step)
+```
+
+> 💡 **One line:** autograd tapes every operation in the forward pass, then `loss.backward()` replays it in reverse to compute every gradient automatically — so you only ever write the *forward* math, and PyTorch derives the backward for free. That's why the training loop is always the same 4 lines: `forward → loss → backward → step`.
+
+This is also why you must call `optimizer.zero_grad()` each iteration: `.grad` *accumulates* (adds up) by default, so you wipe last step's gradients before computing this step's. Forgetting it is the #1 beginner bug. The tensor, autograd, and training-loop sections below put this into real code.
+
+---
+
 ## 4. Core Concepts
 
 ### Tensors

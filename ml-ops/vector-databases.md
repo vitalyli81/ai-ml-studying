@@ -27,6 +27,44 @@ When you search, you drop a pin at your query's location and ask: "what's in the
 
 ---
 
+## Build the Intuition From Zero
+
+The non-obvious thing — the thing that makes vector DBs a real technology and not just a `for` loop — is **how they find the nearest vectors among millions in milliseconds without comparing against all of them.** That's the whole magic; let's build it.
+
+### Idea 1: The naive way is too slow
+
+To find the closest vector to your query, the obvious approach is: compute the distance to *every* stored vector, then sort. This is **exact** but doesn't scale:
+
+```
+query vs. 10 vectors      → 10 distance calcs    → instant
+query vs. 10,000,000      → 10M distance calcs   → per search → way too slow at scale
+```
+
+Every search scanning all 10M items, for thousands of users, is a non-starter. We need to avoid looking at most of the data.
+
+### Idea 2: Approximate search — "good enough, but 1000× faster" (ANN)
+
+The key trade: you almost never need the *mathematically perfect* nearest neighbor — the 2nd-closest document is usually just as useful. So vector DBs use **ANN (Approximate Nearest Neighbor)** search: accept a tiny chance of missing the exact best, in exchange for enormous speed. The trick is **organizing the vectors in advance** so a search can skip most of them.
+
+One intuitive scheme (HNSW, the most common): build a **highway-then-streets map** of the vectors:
+
+```
+Layer 2 (sparse "highways"):   A ──────────── F ──────────── K      ← few nodes, long jumps
+                               │              │              │
+Layer 1 (medium "roads"):      A ── C ── F ── H ── K ── M           ← more nodes
+                               │    │    │    │    │    │
+Layer 0 (all "streets"):       A B C D E F G H I J K L M N ...      ← every vector
+
+Search: start on the highway, greedily hop toward the query, drop to finer
+        layers as you get close. You only ever touch a handful of nodes per layer.
+```
+
+You navigate to your query's neighborhood the way you'd drive cross-country — highways first, then local streets — visiting maybe a few hundred nodes instead of 10 million. That's the millisecond search.
+
+> 💡 **One line:** a vector DB isn't a `for` loop over distances — it pre-builds a navigable graph (or other index) so each search jumps to the right neighborhood and checks only a few hundred candidates, trading a sliver of accuracy for 1000×+ speed. The embeddings come from elsewhere ([../nlp/embeddings.md](../nlp/embeddings.md)); the DB's job is *fast approximate nearest-neighbor* over them, which is what makes [RAG](../llms/rag.md) feasible at scale.
+
+---
+
 ## Why It Exists
 
 ### The Problem

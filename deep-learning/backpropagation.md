@@ -21,6 +21,55 @@ You ship minified JavaScript. An error fires at `bundle.js:1:34521`. Your source
 
 ---
 
+## Build the Intuition From Zero
+
+Backprop intimidates people because of "the chain rule." But the idea is just **assigning blame for a mistake backwards through a chain of steps** — something you do every day. Let's build it with no calculus first, then show the one rule.
+
+### Idea 1: Blame flows backward through a chain
+
+Imagine a relay of three people passing a number, each applying their own step, and the final number comes out too big:
+
+```
+input → [Alice ×2] → [Bob +3] → [Carol ×5] → output (too high by 100)
+```
+
+Who's to blame, and how much should each adjust? You reason **backwards from the end**:
+
+- Carol is last and multiplies by 5, so her step has a *big* effect on the output — nudging Carol matters a lot.
+- Bob's change gets passed through Carol's ×5, so Bob's effect on the final output is *his own effect, amplified by Carol's*.
+- Alice's change passes through Bob *and* Carol, so her effect is amplified by both.
+
+That's the whole idea: **each person's influence on the final error = their local effect × the influence of everyone downstream.** You compute it once at the end and pass it back up the chain, multiplying as you go.
+
+### Idea 2: The chain rule is exactly that multiplication
+
+In a network, "Alice, Bob, Carol" are layers, and "how much does my output change if I nudge this?" is the **gradient**. The chain rule just says: to get a weight's blame for the final loss, **multiply the local gradients along the path from that weight to the loss.**
+
+```
+blame on Alice's weight = (Alice's local effect) × (Bob's local effect) × (Carol's local effect)
+                          └────────────── multiply the chain, back to front ──────────────┘
+
+In one backward pass you compute each layer's local gradient ONCE, then reuse it
+for everything upstream — which is why backprop is fast (2 passes, not millions).
+```
+
+> 💡 **Backprop in one line:** run forward to get the error, then walk backward multiplying local gradients to hand each weight its share of the blame — and nudge each weight down its slope. `loss.backward()` does exactly this multiplication for millions of weights at once.
+
+### Idea 3: Why this explains vanishing/exploding gradients
+
+This picture immediately explains a real bug you'll hit. If you multiply many numbers along a deep chain:
+
+```
+each layer's local gradient ≈ 0.5  →  0.5 × 0.5 × ... (20 layers) ≈ 0.000001  → VANISHES
+                                       early layers barely learn (gradient ~0)
+each layer's local gradient ≈ 2    →  2 × 2 × ... (20 layers) ≈ 1,000,000     → EXPLODES
+                                       training blows up (NaN loss)
+```
+
+Long chains of multiplication shrink toward zero or blow up — that's the *vanishing/exploding gradient* problem, and it's why ReLU, normalization, and residual connections (later docs) exist: they keep those per-layer numbers near 1 so the chain stays stable. The sections below formalize the gradient, the chain rule, and the forward/backward passes.
+
+---
+
 ## 3. Why It Exists
 
 **The problem:** A network with millions of weights needs to know exactly how to adjust *each* weight to reduce error. You can't just try random changes — there are too many.

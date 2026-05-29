@@ -22,6 +22,63 @@ In a telephone chain (RNN), person 1 whispers to person 2, who whispers to perso
 
 ---
 
+## Build the Intuition From Zero
+
+The one thing to truly understand here is **self-attention, and specifically what Query, Key, and Value (QKV) mean.** The letters feel cryptic. Let's make them obvious with a dating-app analogy, then watch one word "attend."
+
+### Idea 1: Attention is a fuzzy search — Query, Key, Value
+
+Every token (word) needs to gather context from the other words. It does this like a **search**:
+
+```
+QUERY  = what I'm looking for       ("I'm the word 'it' — what do I refer to?")
+KEY    = what I advertise about myself  (each other word: "I'm 'cat', a noun, an animal")
+VALUE  = the actual info I'll hand over if you pick me
+```
+
+It works exactly like a dating app: your **Query** ("looking for: someone outdoorsy") is compared against everyone's **Key** (their profile). High match → you pay attention to them → you receive their **Value** (their actual details). Each word builds a Query, every word offers a Key and a Value, and the matches decide who listens to whom.
+
+> 💡 Q, K, and V aren't given to you — each is just the word's embedding multiplied by a small learned weight matrix (`W_Q`, `W_K`, `W_V`). Training figures out *what* makes a good "looking for," "advertisement," and "info to share."
+
+### Idea 2: Watch one word attend, step by step
+
+Sentence: **"The cat sat because it was tired."** The word **"it"** needs to figure out what it refers to.
+
+```
+1. "it" forms its QUERY:        "I'm a pronoun — looking for the noun I stand for"
+
+2. Compare that Query to every word's KEY  (dot product = a match score):
+        it · The   = 0.1     (low match)
+        it · cat   = 9.2     (high match!  cat advertises "noun, animal, subject")
+        it · sat   = 1.0
+        it · tired = 2.1
+
+3. Turn scores into weights that sum to 1  (softmax):
+        cat 0.81,  tired 0.09,  sat 0.05,  The 0.05
+        → "it" decides to listen 81% to 'cat'
+
+4. Take the weighted sum of everyone's VALUE using those weights:
+        new "it" ≈ 0.81×(cat's value) + 0.09×(tired's value) + ...
+        → "it" now CARRIES the meaning of "cat". It got disambiguated. ✓
+```
+
+That's self-attention: **match every Query against every Key to get relevance weights, then blend the Values by those weights.** Every word does this for itself, all at once (that's the matrix `softmax(QKᵀ/√d)·V` below — just steps 2–4 in one line). "All at once" is why it's parallel and loves GPUs.
+
+### Idea 3: Multi-head = several searches in parallel
+
+One attention "search" can only track one kind of relationship. So transformers run several in parallel — **multiple heads** — each with its own Q/K/V matrices:
+
+```
+Head 1 might learn:  pronouns → their nouns      ("it" → "cat")
+Head 2 might learn:  verbs → their subjects       ("sat" → "cat")
+Head 3 might learn:  words → nearby adjectives     ("cat" → "tired")
+   → run them together, concatenate → a richer understanding of each word
+```
+
+Now the QKV, softmax, and multi-head sections below are naming a search you can already picture. The rest of the architecture (positional encoding, feed-forward, residuals, layer norm) is plumbing around this one core idea.
+
+---
+
 ## 3. Why It Exists
 
 **The problem:** RNNs process sequences step-by-step and forget distant context. Their sequential nature also means you can't parallelize training across time steps — making them slow on GPUs.

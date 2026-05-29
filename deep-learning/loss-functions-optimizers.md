@@ -22,6 +22,47 @@ You're driving to a destination (the global minimum of the loss). The GPS consta
 
 ---
 
+## Build the Intuition From Zero
+
+Two things to get: **what an optimizer actually does each step (it's one tiny rule), and why Adam beats plain SGD.**
+
+### Idea 1: The optimizer is one repeated rule
+
+The loss gives you a **gradient** for each weight — a slope saying "increase this weight and the loss goes up/down by this much." The optimizer's entire job is one line, applied to every weight:
+
+```
+new_weight = old_weight − learning_rate × gradient
+                          └── step downhill: opposite the slope, by a small amount
+```
+
+That's **gradient descent** — the exact rule from [linear-regression.md](../ml/linear-regression.md), now run on millions of weights at once. Repeat it on small batches of data (that's **SGD**, *stochastic* = "on a random batch") and the model walks downhill toward lower loss. Everything fancier is a smarter version of this one step.
+
+### Idea 2: Why plain SGD struggles — and how momentum + adaptation fix it
+
+Plain SGD uses one fixed step size for every weight, which causes two real problems. Picture rolling downhill in a long, narrow valley:
+
+```
+problem 1: STEEP across, GENTLE along       problem 2: one learning rate can't fit all
+  → SGD bounces side-to-side, crawls           → big-gradient weights overshoot,
+    forward slowly                                small-gradient weights barely move
+```
+
+Two ideas fix this, and **Adam** combines both:
+
+```
+MOMENTUM   → keep a running average of past gradients, like a heavy ball that
+             builds speed downhill and rolls through the bouncing → smoother, faster
+ADAPTIVE   → give EACH weight its own step size based on how big its gradients
+   STEP      have been → big-gradient weights take smaller steps, tiny-gradient
+             weights take bigger ones → everyone progresses evenly
+```
+
+> 💡 **One line:** every optimizer just nudges weights downhill by `lr × gradient`; Adam adds a momentum "heavy ball" and a per-weight step size so it converges fast without hand-tuning. That's why `AdamW(lr=0.001)` is the default you reach for — it mostly just works.
+
+The loss-function and optimizer sections below detail MSE vs cross-entropy (which slope to compute) and SGD vs Adam vs AdamW (how to take the step).
+
+---
+
 ## 3. Why It Exists
 
 **The problem:** Training needs a single number that measures "how wrong is this model?" — a scalar you can take a derivative of to know which direction to adjust weights.
