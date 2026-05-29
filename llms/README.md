@@ -17,6 +17,7 @@ This is where your frontend skills become a superpower. You already know how to 
 | 7 | MCP (Model Context Protocol) | [mcp.md](mcp.md) | The standard wire format for tools — "USB-C for AI" |
 | 8 | Evals | [evals.md](evals.md) | The highest-leverage skill — prove quality, catch regressions |
 | 9 | Fine-tuning (LoRA, QLoRA, PEFT) | [fine-tuning-llms.md](fine-tuning-llms.md) | Customize the model itself — last resort, not first |
+| 10 | LLM System Design | [system-design.md](system-design.md) | Architect a whole system, not a feature — the top interview round |
 
 ## Learning Path
 
@@ -33,9 +34,13 @@ Fundamentals ─► Prompting ─► RAG ─► APIs/SDKs ─► Production Patt
                                            Evals ─► Fine-tuning
                                          (measure) (if prompting
                                                     isn't enough)
+                                                │
+                                                ▼
+                                         System Design
+                                       (tie it all together)
 ```
 
-**Read this order** — each topic assumes the previous ones. Evals sits late but you should start writing them as soon as you ship anything; the doc is just placed where it makes sense pedagogically.
+**Read this order** — each topic assumes the previous ones. Evals sits late but you should start writing them as soon as you ship anything; the doc is just placed where it makes sense pedagogically. **System Design** comes last on purpose: it assembles every prior topic into one architecture, and it's the round that decides senior offers — read it once you can reason about RAG, agents, caching, and evals individually.
 
 ## What You'll Be Able to Build After This Phase
 

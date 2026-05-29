@@ -1,0 +1,5 @@
+{"id": "refund_window", "input": "How long do I have to return a physical product?", "expected_contains": ["30"], "should_refuse": false, "tags": ["policy", "easy"]}
+{"id": "digital_nonrefundable", "input": "Can I get a refund on a digital download?", "expected_contains": ["non-refundable"], "should_refuse": false, "tags": ["policy", "easy"]}
+{"id": "refund_timing", "input": "When will my refund show up?", "expected_contains": ["5", "business days"], "should_refuse": false, "tags": ["policy", "medium"]}
+{"id": "out_of_corpus", "input": "What is the capital of France?", "expected_contains": ["don't know"], "should_refuse": true, "tags": ["out_of_corpus", "adversarial"]}
+{"id": "exception_contact", "input": "Who do I contact for a policy exception?", "expected_contains": ["support@example.com"], "should_refuse": false, "tags": ["policy", "medium"]}

@@ -16,7 +16,8 @@ ai-ml-studying/
 ├── deep-learning/ → Phase 3: Deep Learning
 ├── nlp/           → Phase 4: NLP & Transformers
 ├── llms/          → Phase 5: LLMs & AI Engineering  (the core of the role)
-└── ml-ops/        → Phase 6: MLOps & Production
+├── ml-ops/        → Phase 6: MLOps & Production
+└── projects/      → Phase 7: Portfolio Projects (starter scaffolds)
 ```
 
 1. Pick the phase you're on (below) and open that folder's `README.md` — it has a topic order and a learning path diagram.
@@ -86,6 +87,7 @@ ai-ml-studying/
 - **MCP (Model Context Protocol)** — the standard wire format for tools — "USB-C for AI"
 - **Evals (first-class skill)** — golden datasets, LLM-as-judge, prompt regression testing, offline vs. online eval
 - **Fine-tuning** — LoRA, QLoRA, PEFT techniques (know when NOT to fine-tune — prompt + RAG usually wins)
+- **LLM System Design** — scope → estimate → architect → tradeoffs → failure modes (the round that decides senior offers)
 
 ## Phase 6: MLOps & Production (4-6 weeks) → [ml-ops/](ml-ops/)
 
@@ -98,15 +100,45 @@ ai-ml-studying/
 - **Evaluation & Monitoring** — offline evals + online quality metrics, drift detection
 - **CI/CD for ML** — experiment tracking (MLflow, W&B), prompt/model versioning
 
-## Phase 7: Portfolio Projects
+## Phase 7: Portfolio Projects → [projects/](projects/)
 
-Interviewers care about shipped projects more than course certificates. Build 3–5 of these end-to-end.
+Interviewers care about shipped projects more than course certificates. Build 3–5 of these end-to-end. The [projects/](projects/) folder has runnable starter scaffolds for the two highest-leverage ones (RAG chatbot + eval harness).
 
 1. **ML-powered web app** — leverage your frontend skills with an ML backend
 2. **RAG chatbot** — end-to-end retrieval-augmented generation with hybrid search + reranking, citations in the UI
 3. **Fine-tuned model** — domain-specific LLM adaptation (LoRA on a small open model)
 4. **AI agent** — autonomous agent with tool use and multi-step reasoning over MCP
 5. **Eval harness** — golden-dataset + LLM-as-judge eval pipeline for one of the projects above (**interviewers ask about this**)
+
+---
+
+## Getting Hired: The Interview Loop
+
+This curriculum makes you **fluent** — it doesn't, by itself, make you **interview-ready**. Big-company loops for AI/LLM engineers have four distinct rounds, and the docs above only arm you for one of them. Close the other three deliberately.
+
+```
+┌──────────────────┬─────────────────────────────┬──────────────────────────────────┐
+│ Round            │ What it tests               │ Where to prepare                 │
+├──────────────────┼─────────────────────────────┼──────────────────────────────────┤
+│ 1. Coding (DSA)  │ LeetCode-style data         │ NeetCode 150 / LeetCode patterns │
+│                  │ structures & algorithms     │ — still gated regardless of      │
+│                  │                             │ the "AI" title. Drill patterns,  │
+│                  │                             │ not random problems.             │
+├──────────────────┼─────────────────────────────┼──────────────────────────────────┤
+│ 2. LLM system    │ Architect a whole system:   │ [llms/system-design.md](llms/    │
+│    design        │ scope, scale, cost,         │ system-design.md) — the highest- │
+│                  │ tradeoffs, failure modes    │ signal round for senior roles.   │
+├──────────────────┼─────────────────────────────┼──────────────────────────────────┤
+│ 3. AI/LLM domain │ RAG, agents, evals, prompt  │ Phases 4–6 of this repo. This is │
+│    depth         │ engineering, prod patterns  │ your home turf — you're covered. │
+├──────────────────┼─────────────────────────────┼──────────────────────────────────┤
+│ 4. Behavioral /  │ "Walk me through a project   │ Your Phase 7 projects. They WILL │
+│    project deep- │ you shipped" — especially   │ grill the eval strategy. Build   │
+│    dive          │ how you evaluated it        │ the projects so you have answers.│
+└──────────────────┴─────────────────────────────┴──────────────────────────────────┘
+```
+
+> 💡 **The trap:** you can finish this entire curriculum and still get filtered on round 1 (a coding screen) or round 2 (system design) — because neither is "AI knowledge." Spend a few hours a week on DSA patterns throughout, and read the system-design doc once Phase 5 clicks. Round 4 is won by *shipping* the Phase 7 projects, not reading about them — an interviewer asking "how did you eval that?" wants to hear about a golden set you actually built.
 
 ---
 
