@@ -122,19 +122,16 @@ The model will try to minimize this number.
 **Analogy:** You're blindfolded on a hilly landscape and want to reach the lowest valley. You feel which direction goes downhill and take a small step that way. Repeat until you stop moving. That's gradient descent.
 
 ```
-Error landscape (bowl-shaped):
+Error landscape (U-shaped / convex):
 
 Error ▲
-      |    *
-      |  *   *
-      | *     *
       |*       *
+      | *     *
+      |  *   *
+      |    *        ← minimum error
       └─────────── weights
-           ↑
-      minimum error
-      (the bottom of the bowl)
 
-The algorithm rolls the ball down the bowl by adjusting weights.
+The algorithm rolls the ball down to the bottom of the U by adjusting weights.
 ```
 
 **Technical explanation:** The gradient (derivative) of the loss tells us which direction error increases. We move the weights in the *opposite* direction (downhill) by a small amount called the **learning rate**.
@@ -143,7 +140,7 @@ The algorithm rolls the ball down the bowl by adjusting weights.
 # One gradient descent step:
 weight = weight - learning_rate * gradient
 # If gradient is positive (error increases with weight) → decrease weight
-# If gradient is negative (error increases as weight decreases) → increase weight
+# If gradient is negative (error decreases as weight increases) → increase weight
 ```
 
 **Common misconception:** Gradient descent always finds the global minimum. For linear regression it does (the loss is convex — bowl-shaped). For neural networks, it only finds a local minimum, which is often good enough.
