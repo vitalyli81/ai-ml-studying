@@ -260,7 +260,11 @@ Step 2: Compute likelihoods
   P("free" | spam)     = 2/3 = 0.67
   P("money" | spam)    = 2/3 = 0.67
   P("free" | not spam) = 1/3 = 0.33
-  P("money" | not spam)= 0/3 → with smoothing: 1/5 = 0.20
+  P("money" | not spam)= 0/3 → with smoothing: (0+1)/(3+2) = 0.20
+
+  (To keep the arithmetic readable we only smooth the zero count here.
+   Real implementations apply smoothing to EVERY count: e.g.
+   P("free"|spam) = (2+1)/(3+2) = 0.60. Same ranking, same prediction.)
 
 Step 3: New email with "free" AND "money" — classify it
 

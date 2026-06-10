@@ -410,7 +410,7 @@ Classification: majority vote across trees
 Regression:     average across trees (RandomForestRegressor)
 
 Remember:
-  1. Start with 100 trees, scale_features=False — no preprocessing needed
+  1. Start with 100 trees; skip feature scaling — trees don't need preprocessing
   2. Set n_jobs=-1 always — it's parallel by nature
   3. Use OOB score for fast dev iteration, proper test set for final eval
 ```

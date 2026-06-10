@@ -402,7 +402,7 @@ y_custom = (y_probs >= best_threshold).astype(int)
 - The decision boundary is non-linear (classes aren't separable by a line)
 - You have many interacting features (tree-based models handle this better)
 - Your data is images or audio (use CNNs)
-- You need to handle multi-class natively without tricks (use Random Forest or neural networks)
+- A feature's effect isn't monotonic (e.g., risk is high at both extremes of a value — a straight line on log-odds can't capture a U-shape without engineered features)
 
 ---
 

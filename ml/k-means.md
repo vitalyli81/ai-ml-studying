@@ -239,12 +239,12 @@ Step 1: Initialize centroids (K-Means++ — smart initialization)
   Centroid B = (70, 85)  ← picked to be far from A
 
 Step 2: Assignment round 1
-  (15,39) → dist to A: 0.0, dist to B: 73.5 → Cluster A
-  (25,60) → dist to A: 24.0, dist to B: 54.0 → Cluster A
-  (60,5)  → dist to A: 55.9, dist to B: 81.4 → Cluster A (!)
-  (70,85) → dist to A: 73.5, dist to B: 0.0  → Cluster B
-  (40,40) → dist to A: 25.0, dist to B: 52.2 → Cluster A
-  (50,80) → dist to A: 51.5, dist to B: 20.6 → Cluster B
+  (15,39) → dist to A: 0.0, dist to B: 71.7 → Cluster A
+  (25,60) → dist to A: 23.3, dist to B: 51.5 → Cluster A
+  (60,5)  → dist to A: 56.4, dist to B: 80.6 → Cluster A (!)
+  (70,85) → dist to A: 71.7, dist to B: 0.0  → Cluster B
+  (40,40) → dist to A: 25.0, dist to B: 54.1 → Cluster A
+  (50,80) → dist to A: 53.9, dist to B: 20.6 → Cluster B
 
 Step 3: Update centroids
   Cluster A: [(15,39), (25,60), (60,5), (40,40)] 

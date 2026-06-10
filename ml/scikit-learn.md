@@ -377,7 +377,7 @@ Because the pipeline includes preprocessing, the loaded model takes **raw data**
 ┌─────────────────────────────────────────────────┐
 │ 1. LOAD DATA                                    │
 │    df = pd.read_csv(...)                        │
-│    X, y = df.drop('target', 1), df['target']    │
+│    X, y = df.drop(columns='target'), df['target']│
 └─────────────────────────────────────────────────┘
                      ↓
 ┌─────────────────────────────────────────────────┐

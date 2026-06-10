@@ -237,9 +237,10 @@ Step 6 — Did the loss actually go down? (re-score with the new line)
 
 Step 7 — Repeat steps 2–6 thousands of times
   Each pass nudges w and b further downhill until the MSE stops shrinking.
-  (Raw-feature gradient descent like this is slow because the two features
-  live on wildly different scales — standardizing them first makes it
-  converge in far fewer steps.)
+  (Raw-feature gradient descent like this is slow because sqft is in the
+  thousands while the intercept isn't — their gradients live on wildly
+  different scales. Standardizing the feature first makes it converge in
+  far fewer steps.)
 
 Step 8 — The converged model
   Solving exactly (the closed form) gives:

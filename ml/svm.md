@@ -303,12 +303,13 @@ Data:
 
 Step 1: Scale features (StandardScaler)
   Each feature: subtract mean, divide by std
-  word_count_scaled: [-0.5, -1.5, 1.5, 0.5]
-  excl_count_scaled: [1.5, -0.8, 0.6, -1.3]
+  (word_count: mean=337.5, std≈108  |  excl_count: mean=5.75, std≈4.5)
+  word_count_scaled: [0.1, -1.3, 1.5, -0.3]
+  excl_count_scaled: [1.4, -1.1, 0.5, -0.8]
 
 Step 2: Find support vectors
-  Spam point closest to boundary:    [−0.5, 1.5]
-  Not-spam point closest to boundary: [0.5, −1.3]
+  Spam point closest to boundary:    [0.1, 1.4]
+  Not-spam point closest to boundary: [-0.3, -0.8]
 
 Step 3: Solve optimization problem
   Find w (normal vector to hyperplane) and b (bias)
@@ -322,8 +323,8 @@ Step 4: Decision boundary
   w·x + b = 0  →  0.4*x₁ + 0.9*x₂ - 0.1 = 0
 
 Step 5: Predict new email (word_count=400, excl_count=5)
-  Scaled: [0.0, 0.1]
-  Score: 0.4*0.0 + 0.9*0.1 - 0.1 = -0.01 < 0 → Not spam
+  Scaled: [0.6, -0.2]   ← (400−337.5)/108 ≈ 0.6, (5−5.75)/4.5 ≈ −0.2
+  Score: 0.4*0.6 + 0.9*(-0.2) - 0.1 = -0.04 < 0 → Not spam
 ```
 
 ---
