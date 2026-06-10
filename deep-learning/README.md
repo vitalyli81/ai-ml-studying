@@ -193,6 +193,38 @@ Read in this order — each doc builds on the previous:
 | 9 | [transfer-learning.md](transfer-learning.md) | Fine-tuning pretrained models | How you'll actually use DL in practice (not from scratch) |
 | 10 | [pytorch-basics.md](pytorch-basics.md) | PyTorch coding patterns | Hands-on implementation reference |
 
+### Practice & Retention (where the learning actually sticks)
+
+| File | What It's For |
+|------|---------------|
+| [flashcards.md](flashcards.md) | ~70 spaced-repetition Q/A cards across all topics — quiz yourself, don't read |
+| [review-quiz.md](review-quiz.md) | 25 mixed scenario questions (interview/debugging-style) — tests *choosing architectures* and *diagnosing training failures*, not just recall |
+
+## How to Study This Folder
+
+Reading well once ≈ remembering for a week. Retrieving repeatedly ≈ remembering for an interview. The schedule:
+
+```
+Per doc:
+  Day 1  → read the doc; answer the 🧠 Quick Recall block mid-doc and
+           the Self-Check Questions at the end (out loud, before peeking)
+  Day 3  → redo that doc's Self-Check Questions COLD (no re-reading first)
+  Day 7  → do the doc's flashcards.md section + type out the doc's core
+           code from memory (training loop, conv block, attention shape)
+
+Per week (after ~4 docs done):
+  → one pass through review-quiz.md on everything covered so far
+    (mixed practice is where "I know each architecture" becomes
+     "I know WHICH architecture, and I can debug it")
+
+Hands-on milestones (the job-interview ammo):
+  → after doc 4: train an MLP on a real dataset end-to-end (no copy-paste)
+  → after doc 6: fine-tune a pretrained ResNet on your own images
+  → after doc 10: fine-tune BERT/DistilBERT on a text dataset with HF Trainer
+```
+
+Rule of thumb: if you can't write the 5-line training loop from memory, nothing else in this folder has stuck yet — start there.
+
 ## What Comes After Deep Learning?
 
 After these docs, you'll be ready for:

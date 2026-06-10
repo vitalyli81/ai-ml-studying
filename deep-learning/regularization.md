@@ -19,6 +19,8 @@ A student who memorizes every practice question (overfitting) aces the practice 
 - **Stopping when you're ready, not when time's up** → early stopping
 - **Practicing with varied question phrasings** → data augmentation
 
+> 💻 **Frontend bridge:** dropout is Chaos Monkey. Netflix randomly kills services in production so no hidden single point of failure can develop — dropout randomly kills neurons during training for exactly the same reason: the network is forced to build redundant pathways instead of leaning on one "hero" neuron. And weight decay is a bundle-size budget enforced on every PR: every kilobyte (weight) must justify itself, so the build stays lean instead of accumulating complexity nobody needs.
+
 ---
 
 ## Build the Intuition From Zero
@@ -243,6 +245,15 @@ loss_fn = nn.CrossEntropyLoss(label_smoothing=0.1)
 ```
 
 **Common misconception:** ❌ "Label smoothing makes training less accurate" → ✅ It often *improves* final accuracy by preventing overconfident predictions that overfit training labels.
+
+---
+
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. Train 99% / validation 72% — name the condition and three fixes.
+> 2. Why do small weights mean a smoother, better-generalizing model?
+> 3. What does dropout do at training time vs. at `model.eval()` time?
+> 4. Which checkpoint do you keep after early stopping — last epoch or best val loss?
+> 5. BatchNorm or LayerNorm for a Transformer?
 
 ---
 

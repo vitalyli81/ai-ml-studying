@@ -191,6 +191,15 @@ print(x.grad)     # tensor(4.)
 
 ---
 
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. What does a weight's gradient tell you — and what doesn't it tell you?
+> 2. The chain rule in plain words: how does a far-upstream weight get its blame?
+> 3. Why do gradients vanish in deep chains of sigmoids — walk the multiplication.
+> 4. Loss suddenly becomes NaN — diagnosis and two fixes?
+> 5. `loss.backward()` vs `optimizer.step()` — which computes, which updates?
+
+---
+
 ## 5. How It Actually Works — Step by Step
 
 A tiny network: `x=2 → [×w1=3] → h=6 → [×w2=0.5] → ŷ=3`, actual `y=5`.

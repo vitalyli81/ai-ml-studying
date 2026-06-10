@@ -187,6 +187,15 @@ with torch.no_grad():          # no gradient tape = 2× faster, less memory
 
 ---
 
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. What does autograd record during `forward()`, and what does `backward()` do with it?
+> 2. Why must `optimizer.zero_grad()` run every iteration — what accumulates otherwise?
+> 3. `model.eval()` vs `torch.no_grad()` — what does each actually change?
+> 4. Why call `model(x)` instead of `model.forward(x)`?
+> 5. Why save `state_dict()` rather than the whole model object?
+
+---
+
 ## 5. How It Actually Works — Step by Step
 
 Full lifecycle of training a classifier:

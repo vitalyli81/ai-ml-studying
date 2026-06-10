@@ -19,6 +19,8 @@ A car factory QA line has different cameras: one checks for dents, one checks pa
 - **Camera result sheet per region** → feature map (where was the pattern found?)
 - **Final quality verdict** → output class prediction
 
+> 💻 **Frontend bridge:** you've already shipped a convolution. SVG's `<feConvolveMatrix>` and every Photoshop sharpen/blur/edge-detect filter work exactly like a conv layer: a small `kernelMatrix` of numbers slides over every pixel, multiply-and-sum at each position. The only difference in a CNN: nobody hand-writes the kernel values — backprop *learns* them, and it runs dozens of kernels per layer instead of one.
+
 ---
 
 ## Build the Intuition From Zero
@@ -207,6 +209,15 @@ nn.Conv2d(in_channels=3, out_channels=32, kernel_size=3, stride=1, padding=1)
 ```
 
 **Common misconception:** ❌ "Stride=2 is the same as pooling" → ✅ Strided convolution learns how to downsample; max pooling always takes the max. Modern networks increasingly prefer strided conv over explicit pooling.
+
+---
+
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. What does sliding a filter compute at each position, in plain words?
+> 2. The two giant wins of using the SAME filter at every position?
+> 3. What does a feature map's bright spot mean?
+> 4. What does max pooling keep, and what does it deliberately throw away?
+> 5. `[1, 3, 224, 224]` through `Conv2d(3, 64, kernel_size=3, padding=1)` — output shape?
 
 ---
 

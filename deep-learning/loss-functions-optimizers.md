@@ -20,6 +20,8 @@ You're driving to a destination (the global minimum of the loss). The GPS consta
 - **Adaptive routing (Google Maps)** → Adam optimizer (adapts per weight)
 - **Simple routing (paper map)** → SGD (one fixed step size for all weights)
 
+> 💻 **Frontend bridge:** momentum is trackpad inertial scrolling. Raw input (the per-batch gradient) is jittery, but the scroll keeps gliding in the established direction, smoothing the noise instead of twitching at every micro-event. Adam adds per-weight adaptivity on top — like easing that auto-tunes its speed per element instead of one global duration for the whole page. And the loss function is your test suite: a single number telling you how broken the build is, recomputed after every change.
+
 ---
 
 ## Build the Intuition From Zero
@@ -206,6 +208,15 @@ Effective learning rate = `lr / (sqrt(v) + ε)` — weights with large historica
 **AdamW** fixes a subtle weight decay bug in Adam. Use AdamW over Adam — it's strictly better and what GPT, BERT, and LLaMA use.
 
 **Common misconception:** ❌ "AdamW's weight_decay is the same as L2 regularization in Adam" → ✅ In Adam, weight decay is incorrectly absorbed into the adaptive learning rate scaling. AdamW decouples them — that's the fix.
+
+---
+
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. MSE vs cross-entropy — which for which task, and why does MSE fail at classification?
+> 2. The one-line rule every optimizer repeats?
+> 3. What two things does Adam track per weight, and what does each buy you?
+> 4. Why AdamW over Adam — what exactly did AdamW fix?
+> 5. Default learning rates: AdamW from scratch? Fine-tuning a pretrained model?
 
 ---
 
@@ -402,7 +413,7 @@ optimizer.step()
 
 1. `nn.CrossEntropyLoss` internally applies `log(softmax(logits))` in a numerically stable combined operation. If you apply softmax first, it computes `log(softmax(softmax(logits)))` — the double softmax squashes the distribution, making all values close to 1/N and producing nearly flat gradients. Training stalls.
 
-2. Cross-entropy uses the log function, which creates an asymmetric penalty: being confidently wrong (predicting 0.99 for the wrong class) gives loss ≈ 4.6, while being uncertain (predicting 0.6) gives loss ≈ 0.5. MSE treats them nearly the same (0.99² ≈ 0.98 vs 0.60² = 0.36). Cross-entropy correctly trains the model to be confident AND accurate.
+2. Cross-entropy uses the log function, which makes confident wrong answers catastrophically expensive: predicting only 0.01 for the correct class costs −log(0.01) ≈ 4.6, while a mildly-confident correct 0.6 costs −log(0.6) ≈ 0.5 — and the penalty grows to infinity as confidence in the wrong answer increases. MSE caps out: the worst possible squared error on a probability is (1−0.01)² ≈ 0.98, barely 6× the mild case (1−0.6)² = 0.16, and its gradient *shrinks* near confident-wrong predictions exactly when you need the strongest correction. Cross-entropy keeps the gradient large until the model is both confident AND right.
 
 3. `weight_decay` adds a penalty proportional to the magnitude of weights, shrinking them toward zero each step. This prevents weights from growing large and overfitting. AdamW vs Adam: in Adam, weight decay interacts incorrectly with the adaptive learning rate scaling (it gets divided by the gradient variance, making it weaker for frequent parameters). AdamW applies weight decay separately after the adaptive update, making it work as intended.
 

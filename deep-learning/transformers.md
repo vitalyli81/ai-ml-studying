@@ -20,6 +20,8 @@ In a telephone chain (RNN), person 1 whispers to person 2, who whispers to perso
 - **A person's full understanding from the conversation** → contextual embedding (enriched by attended information)
 - **Multiple conversation threads simultaneously** → multi-head attention
 
+> 💻 **Frontend bridge:** an RNN is a chain of relayed `postMessage` calls — every hop re-serializes the payload, and data degrades with distance. A Transformer is a pub/sub broadcast channel: every subscriber hears every message directly, and attention scores are each subscriber's per-sender volume knob. And QKV is a search engine you've built before — query string (Q) matched against document metadata (K), results blended from page content (V), weighted by relevance score.
+
 ---
 
 ## Build the Intuition From Zero
@@ -253,6 +255,15 @@ T5 (encoder-decoder):     reads "translate French to English: Je t'aime"
 
 ---
 
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. Query, Key, Value — one phrase each, using any analogy you like.
+> 2. Walk the four steps of one word attending ("it" finding "cat").
+> 3. Why does attention need positional encoding — what is it blind to without it?
+> 4. BERT vs GPT: which attention mask, and what does that let each do?
+> 5. Where does the Transformer's factual knowledge mostly live — attention or FFN?
+
+---
+
 ## 5. How It Actually Works — Step by Step
 
 Processing "I love coding" through one Transformer encoder layer:
@@ -353,7 +364,9 @@ class TransformerClassifier(nn.Module):
         positions = torch.arange(seq_len, device=x.device).unsqueeze(0)
         x = self.embedding(x) + self.pos_encoding(positions)
         x = self.transformer(x, src_key_padding_mask=padding_mask)
-        return self.classifier(x[:, 0, :])   # use [CLS] token (first position)
+        # Classify from the first position's output. (BERT prepends a dedicated
+        # [CLS] token for this job — here we simply reuse token 0 for brevity.)
+        return self.classifier(x[:, 0, :])
 
 model = TransformerClassifier()
 x = torch.randint(1, 10000, (4, 50))   # batch=4, seq_len=50

@@ -242,6 +242,15 @@ Decoder: h₃→"I"→"love"→"you"→"<end>"
 
 ---
 
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. What is the hidden state, in the `Array.reduce()` framing?
+> 2. Why does a plain RNN forget after ~10 steps — what happens to the gradient?
+> 3. Name the three LSTM gates and each one's job.
+> 4. Why does the additive cell-state update fix vanishing gradients?
+> 5. Streaming stock prices vs. translating a document — which gets an LSTM, which a Transformer?
+
+---
+
 ## 5. How It Actually Works — Step by Step
 
 Processing "I love coding" for sentiment classification:

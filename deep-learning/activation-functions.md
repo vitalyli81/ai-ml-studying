@@ -28,6 +28,8 @@ No matter how many layers you stack, it collapses to a single matrix multiply �
 - **Different dimmers for different rooms** → different activations for different layers
 - **Why you need the dimmer at all** → without non-linearity, depth gives you zero extra expressive power
 
+> 💻 **Frontend bridge:** you've seen the collapse problem in CSS. Stack any number of `transform: matrix(...)` operations and the browser composes them into *one* matrix — ten chained linear transforms are exactly one transform. That's a linear-only network. Add one non-linear step (a `filter`, a `clip-path`) between them and the composition can no longer be flattened. Also: ReLU is literally `Math.max(0, x)` — you've written it a hundred times.
+
 ---
 
 ## 3. Why It Exists
@@ -117,7 +119,7 @@ Output
 **Technical explanation:**
 ```
 Input:  [2.0, 1.0, 0.1]           ← raw scores (logits)
-Output: [0.65, 0.24, 0.11]        ← probabilities (sum = 1.0)
+Output: [0.66, 0.24, 0.10]        ← probabilities (sum = 1.0)
 
 Formula: softmax(xᵢ) = e^xᵢ / Σe^xⱼ
 ```
@@ -168,6 +170,15 @@ GELU:   _____╱      (smooth transition near 0)
 Used in GPT-2, GPT-3, BERT, and most modern architectures. You'll see it in Transformer configs.
 
 **Common misconception:** ❌ "GELU is always better than ReLU" → ✅ For CNNs and standard MLPs, ReLU is usually equivalent and faster. GELU's advantage shows mainly in Transformers.
+
+---
+
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. Stack 100 layers with no activations — what do you mathematically end up with?
+> 2. Why is sigmoid banned from hidden layers but correct for binary output?
+> 3. What is the dying ReLU problem, and which variant fixes it?
+> 4. Which activation pairs with `nn.CrossEntropyLoss`, and why do you NOT add it yourself?
+> 5. Regression output layer — which activation?
 
 ---
 
@@ -243,8 +254,10 @@ class BinaryClassifier(nn.Module):
             nn.Linear(10, 64),
             nn.ReLU(),
             nn.Linear(64, 1),
-            nn.Sigmoid(),           # output → probability 0-1
+            nn.Sigmoid(),           # output → probability 0-1 (pair with nn.BCELoss)
         )
+# In practice, prefer dropping the Sigmoid and using nn.BCEWithLogitsLoss
+# on the raw logits — numerically more stable (see loss-functions-optimizers.md)
 ```
 
 ### Activation in Transformers

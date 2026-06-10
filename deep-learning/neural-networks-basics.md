@@ -19,6 +19,8 @@ A car factory has stations: cut metal → weld frame → install engine → pain
 - **Station settings that change** → Weights (the numbers the network learns)
 - **Running the factory 10,000 times** → Training epochs
 
+> 💻 **Frontend bridge:** a network is an Express middleware chain — `app.use(layer1).use(layer2).use(predict)` — where each middleware transforms the data and passes it on. The twist: nobody hand-writes the middleware logic. A QA report from the end of the chain (the loss) flows backward and auto-tunes every middleware's behavior, request after request, until the chain produces the right responses.
+
 ---
 
 ## Build the Intuition From Zero
@@ -188,6 +190,15 @@ batch_size = 100     # items per batch
 **Technical explanation:** Even a single hidden layer with enough neurons can theoretically approximate any continuous function. In practice, deep networks (many layers) learn the same functions more efficiently with fewer neurons.
 
 **Common misconception:** ❌ "This means neural nets can solve anything" → ✅ It means they CAN represent the function — actually finding it through training is a separate (hard) problem.
+
+---
+
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. What does one neuron compute, in one sentence?
+> 2. Why does a network with no activation functions collapse into a single linear layer?
+> 3. The five lines of the PyTorch training loop, in order?
+> 4. 1,000 samples, batch size 100 — how many iterations is one epoch?
+> 5. What does the Universal Approximation Theorem promise — and what doesn't it promise?
 
 ---
 

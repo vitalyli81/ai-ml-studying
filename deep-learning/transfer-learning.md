@@ -165,7 +165,7 @@ Just right (1e-5):  gentle adaptation → keep universal features, learn task-sp
 
 **Analogy:** Instead of rewriting an entire 1000-page textbook (full fine-tuning), you add a 10-page sticky-note addendum (LoRA adapter). When reading, you consult both. The original book stays pristine.
 
-**The problem LoRA solves:** A 7B-param model has 28 GB of weights. Full fine-tuning needs ~4× that in GPU memory (weights + gradients + optimizer states) → 100+ GB. LoRA needs a tenth of that because you only train ~0.1% of parameters.
+**The problem LoRA solves:** A 7B-param model has 14 GB of weights in fp16 (28 GB in fp32). Full fine-tuning needs ~4× the weight size in GPU memory (weights + gradients + optimizer states) → 50–100+ GB. LoRA needs a tenth of that because you only train ~0.1% of parameters.
 
 ```
 Full fine-tuning:        LoRA fine-tuning:
@@ -249,6 +249,15 @@ Source domain:  General text (Common Crawl) →  Target domain: Legal contracts
 ```
 
 **Common misconception:** ❌ "The further the domains, the more from-scratch training you need" → ✅ Even very different domains benefit from transfer — training from scratch almost always performs worse than starting from a pretrained model, even if the domains seem unrelated.
+
+---
+
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. Which layers of a pretrained network are universal, which are task-specific?
+> 2. Feature extraction vs fine-tuning — what's frozen in each?
+> 3. What is catastrophic forgetting, and what single hyperparameter causes it?
+> 4. 200 images, 4 classes — which strategy?
+> 5. What does LoRA train instead of the full weights, and why does that work?
 
 ---
 
