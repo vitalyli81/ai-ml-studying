@@ -275,6 +275,15 @@ Reply with JSON: {{"grounded": bool, "unsupported_claims": [str]}}
 
 ---
 
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. What does RAG separate, and why does that make updates instant?
+> 2. Chunk size and overlap — the starting numbers, and what goes wrong at each extreme?
+> 3. What is recall@k measuring, and what does low recall@10 tell you vs low recall@3?
+> 4. Retrieval is perfect but answers are still wrong — what do you measure next?
+> 5. RAG or fine-tuning: "know our refund policy" vs "write like our brand"?
+
+---
+
 ## How the Full RAG Pipeline Works (Step-by-Step)
 
 ```

@@ -194,6 +194,15 @@ const response = await anthropic.messages.create({
 
 ---
 
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. Why must you resend the full conversation history on every call?
+> 2. What does streaming actually improve — total latency or something else?
+> 3. "Return JSON" vs `tool_choice` with a schema — which is guaranteed, and why does it matter?
+> 4. What does `cache_control: ephemeral` cache, what's the TTL, and the savings?
+> 5. Where do API keys live — and what's the one place they must never be?
+
+---
+
 ## How It Actually Works (Step-by-Step)
 
 ```
@@ -604,11 +613,11 @@ See [../ml-ops/reliability-patterns.md](../ml-ops/reliability-patterns.md) for r
 | Model selection | Haiku=cheap/fast, Sonnet=balanced, Opus=powerful |
 | Error handling | Always handle RateLimitError and APIError |
 
-**Model cost tiers (Anthropic, approximate):**
+**Model cost tiers (Anthropic, approximate — always check current pricing):**
 ```
-Haiku   $0.25/$1.25 per M tokens    ← Simple tasks, high volume
-Sonnet  $3/$15 per M tokens         ← Most production use cases
-Opus    $15/$75 per M tokens        ← Complex reasoning, maximum quality
+Haiku   ~$1/$5 per M tokens         ← Simple tasks, high volume
+Sonnet  ~$3/$15 per M tokens        ← Most production use cases
+Opus    ~$15/$75 per M tokens       ← Complex reasoning, maximum quality
 ```
 
 **Remember these 3 things:**

@@ -275,6 +275,15 @@ async def call_with_retry(prompt: str, max_attempts=4):
 
 ---
 
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. What exactly does prompt caching cache — the response or something else?
+> 2. What does streaming change: total latency, perceived latency, or tokens/sec?
+> 3. Why validate structured outputs even when the schema is enforced?
+> 4. Where do critical instructions go in a long context, and why?
+> 5. Edit one word at the START of your cached system prompt — what happens to cost?
+
+---
+
 ## How It Actually Works (Step-by-Step)
 
 A production request flowing through a well-built LLM stack:

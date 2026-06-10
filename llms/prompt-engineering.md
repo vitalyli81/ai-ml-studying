@@ -218,6 +218,15 @@ renderJobCard(result);  // LLM output feeds directly into your UI
 
 ---
 
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. The 5 building blocks of a production prompt?
+> 2. When does few-shot beat zero-shot — and when do examples stop helping?
+> 3. Why does "think step by step" mechanically improve reasoning?
+> 4. When does chain-of-thought HURT?
+> 5. "Return JSON" in the prompt vs structured outputs — what's the production difference?
+
+---
+
 ## How It Actually Works (Step-by-Step)
 
 Let's trace a real production example: building a code review bot.

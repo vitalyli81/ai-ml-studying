@@ -234,6 +234,15 @@ Vector index stale       → version the corpus; delta re-embed; pin embedding m
 
 ---
 
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. The 6 beats of the framework, in order — and which one do people skip in minute one?
+> 2. The single most important clarifying question?
+> 3. Derive it: 50K DAU × 5 queries → QPS average and peak?
+> 4. What makes an LLM call architecturally different from a normal upstream API call?
+> 5. The "senior move" that attacks the cost estimate directly?
+
+---
+
 ## How It Actually Works — A Worked Example
 
 **Prompt:** *"Design a customer-support RAG chatbot for an e-commerce company. 10M registered users."*

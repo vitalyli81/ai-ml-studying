@@ -136,6 +136,15 @@ Before LSP, every editor (VS Code, Vim, IntelliJ) built its own integration with
 
 ---
 
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. MCP solves the N×M problem — what are N and M, and what's the LSP parallel?
+> 2. Tools vs resources vs prompts — one phrase each, and who initiates each?
+> 3. stdio vs HTTP transport — when do you actually need HTTP?
+> 4. What is "sampling," and in which direction does the request flow?
+> 5. What permissions does an installed MCP server run with?
+
+---
+
 ## How It Actually Works (Step-by-Step)
 
 A typical conversation flow:

@@ -162,8 +162,8 @@ Claude:  Not disclosed
 Model               Context Window    ≈ Pages of Text
 ──────────────────────────────────────────────────────
 GPT-4o              128K tokens       ~300 pages
-Claude 3.5 Sonnet   200K tokens       ~500 pages
-Claude Opus 4       200K tokens       ~500 pages
+Claude Sonnet 4.x   200K tokens       ~500 pages (1M in beta)
+Claude Opus 4.x     200K tokens       ~500 pages
 Gemini 1.5 Pro      1M tokens         ~2,500 pages
 Llama 3 (8B)        8K tokens         ~20 pages
 ```
@@ -218,6 +218,15 @@ Large model (70B+ params): Can reason, write code, do math,
 ```
 
 **Common misconception:** Emergent abilities prove LLMs are "intelligent." They might just be very sophisticated pattern matching that *looks* like reasoning — the debate is ongoing.
+
+---
+
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. Why does a chatbot "remember" your name — what is actually happening on call #2?
+> 2. The context window is the model's ___ — and what happens to facts that aren't on it?
+> 3. Why does the model hallucinate instead of saying "I don't know"?
+> 4. Roughly: 1 token ≈ how many words, and which costs more — input or output tokens?
+> 5. Temperature 0 — deterministic, accurate, both, or neither?
 
 ---
 

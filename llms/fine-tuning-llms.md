@@ -196,6 +196,15 @@ QLoRA:    1× RTX 4090 24GB ≈ $0.50/hr → $2
 
 ---
 
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. Fine-tuning changes ___, RAG changes ___ — fill in and give one example of each.
+> 2. Walk the decision tree: when is fine-tuning actually the right answer?
+> 3. What does LoRA train instead of the weight matrix W, and what stays frozen?
+> 4. What does the Q in QLoRA compress, and what stays full precision?
+> 5. r=16 vs r=256 on a small dataset — what happens?
+
+---
+
 ## How Fine-tuning Works (Step-by-Step)
 
 ```

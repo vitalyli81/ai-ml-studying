@@ -114,7 +114,7 @@ Score each criterion 1-5 and return JSON:
 
 def llm_judge(input_, expected, output):
     resp = client.messages.create(
-        model="claude-opus-4-7",  # use a stronger model to judge
+        model="claude-opus-4-8",  # use a stronger model to judge
         max_tokens=512,
         messages=[{"role": "user", "content": JUDGE_PROMPT.format(
             input=input_, expected=expected, output=output)}],
@@ -189,6 +189,15 @@ The diff is what matters. A +4% overall with a -2% safety drop is a regression, 
 | Agents | Task completion rate, steps to completion, tool-call correctness |
 
 **Common misconception:** ❌ "BLEU/ROUGE are enough for summarization." ✅ They measure n-gram overlap, not factual correctness. A fluent hallucination scores high on ROUGE.
+
+---
+
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. What's in a golden dataset, and how many examples do you actually need to start?
+> 2. Deterministic checks vs LLM-as-judge — which first, and why?
+> 3. Name the three judge biases and one mitigation for each.
+> 4. Pass rate 82% → 91% — why can't you ship on that number alone?
+> 5. Offline vs online evals — what does each catch that the other can't?
 
 ---
 
@@ -274,7 +283,7 @@ Each 1-5. Return strict JSON.
 
 def judge(user_input: str, output: str) -> dict:
     resp = client.messages.create(
-        model="claude-opus-4-7",
+        model="claude-opus-4-8",
         max_tokens=300,
         tools=[{
             "name": "grade",

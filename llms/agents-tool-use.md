@@ -257,6 +257,15 @@ const results = await Promise.all(
 
 ---
 
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. Who decides which tool to call, and who actually executes it?
+> 2. The agent loop in one sentence — and what signals "done"?
+> 3. Which field of a tool definition does the LLM actually read to choose tools?
+> 4. Parallel vs sequential tool calls — what determines which the model should do?
+> 5. The two non-negotiable safety rails for any agent loop?
+
+---
+
 ## How the Agent Loop Works (Step-by-Step)
 
 ```
