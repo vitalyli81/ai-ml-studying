@@ -188,6 +188,41 @@ Read in this order:
 | 8 | [huggingface.md](huggingface.md) | Hugging Face ecosystem | The npm of AI — where you get models |
 | 9 | [fine-tuning-nlp.md](fine-tuning-nlp.md) | Fine-tuning for NLP tasks | Adapting models to your specific needs |
 
+### Practice & Retention (where the learning actually sticks)
+
+| File | What It's For |
+|------|---------------|
+| [flashcards.md](flashcards.md) | ~60 spaced-repetition Q/A cards across all topics — quiz yourself, don't read |
+| [review-quiz.md](review-quiz.md) | 25 mixed scenario questions (interview/debugging-style) — tests *choosing the right approach* and *debugging pipelines*, not just recall |
+
+## How to Study This Folder
+
+Reading well once ≈ remembering for a week. Retrieving repeatedly ≈ remembering for an interview. The schedule:
+
+```
+Per doc:
+  Day 1  → read the doc; answer the 🧠 Quick Recall block mid-doc and
+           the Self-Check Questions at the end (out loud, before peeking)
+  Day 3  → redo that doc's Self-Check Questions COLD (no re-reading first)
+  Day 7  → do the doc's flashcards.md section + run the doc's code on
+           your own data (not the example data)
+
+Per week (after ~4 docs done):
+  → one pass through review-quiz.md on everything covered so far
+    (mixed practice is where "I know each tool" becomes
+     "I know WHICH tool, and I can debug the pipeline")
+
+Hands-on milestones (the job-interview ammo):
+  → after doc 2: build a tiny semantic search over your own notes/bookmarks
+    (sentence-transformers + cosine similarity, ~30 lines)
+  → after doc 5: ship one pipeline() demo per task — sentiment, NER,
+    summarization — on text from a domain you know
+  → after doc 9: fine-tune DistilBERT on a real dataset end-to-end and
+    compare against the zero-shot baseline (report both numbers)
+```
+
+Rule of thumb: if you can't sketch "text → tokens → IDs → embeddings → model → label/text" from memory, start there — every doc in this folder is a stop on that pipeline.
+
 ## What Comes After This?
 
 After NLP & Transformers, you move to **Phase 5: LLMs & AI Engineering** — prompt engineering, RAG, agents, and LLM APIs. That phase builds directly on everything in this folder. NLP is the foundation, LLM engineering is the application.

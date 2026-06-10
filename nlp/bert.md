@@ -20,6 +20,8 @@ GPT reads a mystery novel page by page without being able to flip back. BERT rea
 | Final verdict (one answer) | [CLS] token → classification output |
 | Annotating specific items (highlight the knife) | Token vectors → NER output |
 
+> 💻 **Frontend bridge:** BERT is **TypeScript's type checker**, GPT is the **streaming interpreter**. The checker reads the whole file at once — the type of a symbol on line 3 can depend on a declaration at line 50 (hoisting, declaration merging), so whole-file context is the point. An interpreter executing top-to-bottom can never use line 50 to understand line 3. Bidirectional attention = whole-file analysis; causal attention = streaming execution.
+
 ---
 
 ## Build the Intuition From Zero
@@ -185,6 +187,15 @@ Input tokens
     ↓
 Output vectors (one per input token)
 ```
+
+---
+
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. What can bidirectional attention resolve that left-to-right reading can't? (Give the "bank" example.)
+> 2. How does masked language modeling force bidirectional understanding without letting the model cheat?
+> 3. What is the [CLS] token's job, and what do you bolt onto it?
+> 4. What gets thrown away and what gets reused when you fine-tune BERT for classification?
+> 5. Why can't BERT generate text?
 
 ---
 

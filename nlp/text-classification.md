@@ -20,6 +20,8 @@ A postal worker sorts letters by reading the address and dropping them in the ri
 | Wrong address → returned letter | Wrong prediction → misclassification |
 | Separate bins for each city | One output neuron per class |
 
+> 💻 **Frontend bridge:** it's a **router**. A request comes in, gets matched to exactly one handler from a fixed route table. Zero-shot classification is route patterns you can edit live in config (flexible, instant changes); a fine-tuned model is the compiled route table (much faster per request, but changing the routes means a redeploy — i.e., retraining). Multi-label is middleware: several handlers can fire for one request.
+
 ---
 
 ## 3. Why It Exists
@@ -142,6 +144,15 @@ Example: 950 "not spam" + 50 "spam"
 ```
 
 **Common misconception:** ❌ "High accuracy = good model" → ✅ Always check per-class metrics. Imbalanced datasets make accuracy meaningless — a model can be 95% accurate while being completely useless.
+
+---
+
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. The three approaches in rising accuracy order, and what each costs?
+> 2. Multi-class vs multi-label — which activation for each, and why does mixing them up break training?
+> 3. Why does TF-IDF fail on "not bad"?
+> 4. How does zero-shot classification work without any training on your labels?
+> 5. 95% accuracy on 95%-imbalanced data — what do you check next?
 
 ---
 

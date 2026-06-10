@@ -20,6 +20,8 @@ A newly hired consultant (pretrained model) already knows business, communicatio
 | Still knows general skills underneath | Pretrained weights preserved (low learning rate) |
 | Specialist consultant with general foundation | Fine-tuned model |
 
+> 💻 **Frontend bridge:** three ways to customize a library, in rising order of commitment. **Prompting** = passing props/config at runtime — instant to change, nothing to maintain. **Full fine-tuning** = forking the package — maximum control, but now you own the build. **LoRA** = a plugin: the base package stays untouched, you ship a tiny extension (~20 MB) on top, and you can hot-swap plugins per task without reinstalling the framework. Exhaust config before you fork — same rule as here: exhaust prompting before you fine-tune.
+
 ---
 
 ## 3. Why It Exists
@@ -205,6 +207,15 @@ Batch size:     8-32           ← depends on GPU memory
 Weight decay:   0.01           ← L2 regularization to prevent overfitting
 Warmup steps:   ~100           ← slowly ramp up learning rate at start
 ```
+
+---
+
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. The decision flow: what do you try BEFORE fine-tuning, in order?
+> 2. What learning rate for fine-tuning, and what disaster does a 100× larger one cause?
+> 3. What does LoRA train instead of the full weights, and roughly what fraction of parameters?
+> 4. LoRA vs QLoRA — what does the Q add, and what GPU does each need for a 7-8B model?
+> 5. 50 labeled examples — fine-tune or not? What instead?
 
 ---
 

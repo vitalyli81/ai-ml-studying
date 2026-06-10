@@ -20,6 +20,8 @@ A legal assistant reviewing a contract highlights all dates in yellow, all compa
 | Starting vs. continuing a highlighted phrase | B- (Begin) vs. I- (Inside) tags |
 | Reviewing the whole sentence before highlighting | Bidirectional attention in BERT |
 
+> 💻 **Frontend bridge:** NER is **syntax highlighting**. Your editor classifies every token in the file — keyword, string, variable, type — and the same word gets a different color depending on context (`name` as a variable vs. `name` as an object key). That's token-level classification with context-dependent labels, which is exactly what NER does to prose: "Apple" gets the ORG color near "CEO" and no color near "pie."
+
 ---
 
 ## 3. Why It Exists
@@ -128,6 +130,15 @@ result = ner_grouped("Tim Cook founded Apple")
 ```
 
 Always use `grouped_entities=True` in production — individual subword tokens are rarely what you want.
+
+---
+
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. What ambiguity does BIO tagging resolve that plain entity labels can't?
+> 2. NER vs text classification — what level does the classification head operate at?
+> 3. Why `grouped_entities=True`, always?
+> 4. Why is an uncased model a mistake for NER specifically?
+> 5. Custom entity types, zero training data — which approach?
 
 ---
 

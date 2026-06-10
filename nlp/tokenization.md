@@ -19,6 +19,8 @@ A postal system doesn't ship entire cities — it breaks destinations into count
 | ZIP code (a number for a place) | Token ID (a number for a text piece) |
 | Address book on the server | Vocabulary (list of all known tokens) |
 
+> 💻 **Frontend bridge:** tokenization is the **lexer stage of a compiler**. Babel doesn't understand `const x = 5` as a string — it first lexes it into tokens (`const`, `x`, `=`, `5`) that the parser consumes. Same pipeline here: raw text → tokens → IDs → model. And BPE's "common strings get their own token" is why `function` is 1 token to an LLM while a random hash like `x7Qp9` shatters into many — exactly why code and prose cost different amounts per character.
+
 ---
 
 ## Build the Intuition From Zero
@@ -125,7 +127,7 @@ from transformers import AutoTokenizer
 
 tokenizer = AutoTokenizer.from_pretrained("gpt2")
 tokens = tokenizer.tokenize("unhappily")
-print(tokens)  # ['un', 'happi', 'ly']
+print(tokens)  # e.g. ['un', 'happ', 'ily'] — exact splits vary by tokenizer/vocab
 ```
 
 **Common misconception:** ❌ "BPE is a universal algorithm" → ✅ BERT uses WordPiece, GPT uses BPE, T5 uses SentencePiece — all subword methods but trained differently. Always use the tokenizer that comes with your model.
@@ -160,12 +162,14 @@ print(tokens)  # ['un', 'happi', 'ly']
 **Technical explanation:** When batching sentences of different lengths, shorter ones get padded. Without a mask, the model would treat padding as real input and produce wrong results.
 
 ```
-Sentence 1: "I love NLP"        → tokens: [101, 1045, 2293, 17953, 102,   0,   0]
-Sentence 2: "Deep learning rocks"→ tokens: [101, 2784, 4083, 6152,  102,   0,   0]
+Batch is padded to the LONGEST sequence (7 tokens here):
+
+Sentence 1: "I love NLP"               → [101, 1045, 2293, 17953,  102,    0,    0]
+Sentence 2: "Deep learning rocks a lot"→ [101, 2784, 4083, 6152, 1037, 2843,  102]
 
 Attention mask:
-Sentence 1: [1,    1,    1,     1,     1,    0,   0]  ← ignore last two
-Sentence 2: [1,    1,    1,     1,     1,    0,   0]  ← ignore last two
+Sentence 1: [1,    1,    1,     1,     1,    0,    0]  ← last two are [PAD]: ignore
+Sentence 2: [1,    1,    1,     1,     1,    1,    1]  ← all real tokens
 ```
 
 **Common misconception:** ❌ "Padding zeros mean the model ignores them automatically" → ✅ You must explicitly pass `attention_mask` — the model doesn't detect zeros on its own.
@@ -179,6 +183,15 @@ Sentence 2: [1,    1,    1,     1,     1,    0,   0]  ← ignore last two
 **Analogy:** Your working memory — you can only hold so many things in mind at once. A model with a 4K context window "forgets" anything beyond 4,000 tokens.
 
 **Common misconception:** ❌ "Context window = number of words" → ✅ Context window is in tokens. A 100K token window ≈ 75K words ≈ 300 pages. Code is more expensive per character than prose.
+
+---
+
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. Why do both word-level and character-level tokenization fail, and what does subword fix?
+> 2. How does BPE learn where to split — what's the one repeated rule?
+> 3. What does the attention mask tell the model, and what breaks without it?
+> 4. Roughly how many characters/words per token in English?
+> 5. Cased or uncased model for NER — and why?
 
 ---
 

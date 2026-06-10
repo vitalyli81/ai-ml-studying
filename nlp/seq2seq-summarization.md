@@ -20,6 +20,8 @@ A bad translator translates word-by-word as they hear it. A good translator list
 | Translator looking back at their notes for complex phrases | Attention mechanism consulting encoder states |
 | English → French | Input language → output language |
 
+> 💻 **Frontend bridge:** seq2seq is a **transpiler**. TypeScript → JavaScript doesn't replace tokens one-for-one: the compiler parses the whole input into a meaning representation (the AST — that's the encoder), then *emits* fresh output from it (that's the decoder). Output can be longer, shorter, or reordered, but the semantics survive. Summarization is transpiling an article into a shorter dialect of itself.
+
 ---
 
 ## Build the Intuition From Zero
@@ -221,6 +223,15 @@ ROUGE-L (longest common subsequence):
 ```
 
 **Common misconception:** ❌ "High ROUGE = good summary" → ✅ ROUGE measures overlap, not correctness. A summary can score poorly on ROUGE while being more accurate and readable than the reference. ROUGE is a proxy, not ground truth. Always complement with human evaluation.
+
+---
+
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. What does the encoder produce, exactly — one vector or something richer?
+> 2. In cross-attention, where do Q, K, and V each come from?
+> 3. Greedy vs beam search — what failure does beam search prevent?
+> 4. Extractive vs abstractive — which for a legal brief, and why?
+> 5. What can a high ROUGE score NOT tell you about a summary?
 
 ---
 

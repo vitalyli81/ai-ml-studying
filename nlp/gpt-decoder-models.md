@@ -259,6 +259,15 @@ timeline
 
 ---
 
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. Describe the autoregressive loop in one sentence.
+> 2. Why does "just predicting the next token" produce reasoning and code?
+> 3. The three training stages from raw text-completer to helpful assistant?
+> 4. What does the KV cache store, and which two real costs does it explain?
+> 5. Temperature 0 vs 0.7 vs 1.5 — when do you want each?
+
+---
+
 ## 5. How It Actually Works (Step-by-Step)
 
 Let's trace generating "Paris" as the answer to "The capital of France is":

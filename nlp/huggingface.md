@@ -158,6 +158,15 @@ Datasets integrate seamlessly with Trainer — pass `dataset["train"]` directly.
 
 ---
 
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. The three API levels, lowest-effort to most control?
+> 2. `AutoModel` vs `AutoModelForSequenceClassification` — what's the difference?
+> 3. Why must the tokenizer and model come from the same checkpoint name?
+> 4. What two things must you save together after fine-tuning?
+> 5. What does `batched=True` in `.map()` buy you?
+
+---
+
 ## 5. How It Actually Works (Step-by-Step)
 
 Let's build a complete sentiment classifier with fine-tuning from zero to deployed model:

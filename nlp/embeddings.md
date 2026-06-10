@@ -20,6 +20,8 @@ On a map, nearby coordinates = nearby places. In embedding space, nearby vectors
 | City neighborhoods (finance district, arts district) | Clusters of semantically related words |
 | Adding more axes beyond lat/lng (altitude, terrain, climate) | Higher embedding dimensions capturing richer meaning |
 
+> 💻 **Frontend bridge:** you already use embeddings — they're called **hex colors**. `#FF6B35` is a 3-dimensional vector, "similar colors" are nearby points in RGB space, and "find the closest palette color" is a nearest-neighbor search. A sentence embedding is the same trick with 384 dimensions instead of 3, and "meaning" instead of "hue." Semantic search = `colors.sort(distanceTo(target))[0]`, scaled up.
+
 ---
 
 ## Build the Intuition From Zero
@@ -220,6 +222,15 @@ embeddings = model.encode(sentences)
 ```
 
 **Common misconception:** ❌ "Just average all word vectors to get a sentence embedding" → ✅ Simple averaging loses word order and context. Sentence-Transformers are trained specifically to produce good sentence-level representations.
+
+---
+
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. "You shall know a word by the company it keeps" — how does that train an embedding?
+> 2. What does `king − man + woman ≈ queen` demonstrate?
+> 3. Word2Vec vs BERT embeddings — what does "contextual" change for the word "bank"?
+> 4. Why cosine similarity instead of Euclidean distance for text vectors?
+> 5. You switch embedding models — what must happen to your vector database?
 
 ---
 
