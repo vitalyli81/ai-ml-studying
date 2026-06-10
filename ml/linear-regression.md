@@ -23,6 +23,8 @@ Mapping:
 
 The algorithm's only job: find the slope and intercept that minimize prediction errors across all data points.
 
+> 💻 **Frontend bridge:** you've already written gradient descent. Smooth-scroll easing — `pos += (target - pos) * 0.1` in a `requestAnimationFrame` loop — moves a value a fraction of the remaining error toward a target each frame. That `0.1` is literally a learning rate: crank it too high and the animation overshoots and oscillates; too low and it crawls. Training a linear model is that loop, run on the weights.
+
 ---
 
 ## Build the Intuition From Zero
@@ -191,6 +193,15 @@ Lasso effectively does feature selection — it eliminates unimportant features.
 ```
 
 **Common misconception:** Regularization always hurts accuracy. It hurts training accuracy slightly but improves test/real-world accuracy by preventing overfitting.
+
+---
+
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above; if one stumps you, re-read that concept):
+> 1. A learned weight of 150 on `sqft` means what, in one sentence?
+> 2. Why square the errors instead of taking absolute values?
+> 3. The gradient is positive — which way do you move the weight?
+> 4. What's the failure mode of a too-high learning rate?
+> 5. Ridge or Lasso — which one can eliminate features entirely?
 
 ---
 

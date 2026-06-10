@@ -23,6 +23,8 @@ Mapping:
 
 Logistic regression is a linear decision boundary: "I draw a straight line; everything on this side is class 0, everything on the other side is class 1."
 
+> 💻 **Frontend bridge:** it's a password-strength meter. You combine weighted signals (length, symbols, common-word penalty) into one score, squash it into a 0–100% bar, and a threshold flips the UI from "weak" to "strong." The weighted sum is `w·x + b`, the bar is the sigmoid output (`predict_proba`), the flip is `predict` — and choosing where "strong" starts is exactly threshold tuning.
+
 ---
 
 ## Build the Intuition From Zero
@@ -236,6 +238,15 @@ Example — fraud detection (1% of transactions are fraud):
 ```
 
 **Common misconception:** High accuracy = good model. On imbalanced data, accuracy is meaningless. Always check precision, recall, and F1.
+
+---
+
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. What does the sigmoid do to the raw score z = w·x + b, and *why* that exact function?
+> 2. What shape of decision boundary can logistic regression draw?
+> 3. Which kind of prediction does log loss punish hardest?
+> 4. When would you deliberately move the threshold below 0.5?
+> 5. Your data is 99% class 0 — why is accuracy useless, and what do you report instead?
 
 ---
 

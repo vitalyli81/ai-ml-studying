@@ -25,6 +25,8 @@ Mapping:
 
 Change K, change how many people you trust. Change the distance metric, change your definition of "similar."
 
+> 💻 **Frontend bridge:** KNN is `items.map(distanceTo(query)).sort().slice(0, k)` over the *entire* dataset — on every single query. It's filtering a million-row unindexed table inside the render loop: fine for a demo, fatal at scale. The grown-up fix is the same as in web dev — add an index. That's exactly what FAISS / vector databases are: a search index for nearest-neighbor queries (and the retrieval step behind RAG).
+
 ---
 
 ## Build the Intuition From Zero
@@ -239,6 +241,15 @@ With StandardScaler (mean=0, std=1):
 ```
 
 **Common misconception:** Scaling is optional if features are already in similar units. Even similar units can have very different variances. Always use StandardScaler or MinMaxScaler before KNN.
+
+---
+
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. Euclidean distance for 5 features — describe the formula in plain words.
+> 2. K=1 vs K=50 — which is high variance, which is high bias?
+> 3. Where does KNN's computation happen: training time or prediction time?
+> 4. Why does "nearest neighbor" stop meaning anything at 200 features?
+> 5. Unscaled salary next to age — what happens to the distance calculation?
 
 ---
 

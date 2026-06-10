@@ -22,6 +22,8 @@ Mapping:
 - Each item checked separately → the naive independence assumption
 - Surprisingly catches most actual threats → "naive" assumption works in practice
 
+> 💻 **Frontend bridge:** it's a Lighthouse score. Each audit (contrast, alt text, tap targets, bundle size) is scored *independently* — no audit knows about the others — then the results are combined into one number. Technically wrong (the factors clearly interact), yet great for *ranking* pages from worst to best. Naive Bayes makes the same bet: independent per-word scores, multiplied together, ranking classes correctly even though the probabilities are off.
+
 ---
 
 ## Build the Intuition From Zero
@@ -235,6 +237,15 @@ log_P_spam = log(P_free) + log(P_money) + log(P_click) + log(P_now) + ...
 ```
 
 **Common misconception:** You need to implement this yourself. scikit-learn's Naive Bayes implementations automatically use log probabilities internally. You don't need to worry about this — just know it's why the model works for long documents.
+
+---
+
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. Disease 1% prevalent, test 90% accurate, you test positive — roughly what's the real chance you're sick, and why?
+> 2. What exactly does the "naive" assumption claim, and why does the classifier work anyway?
+> 3. What catastrophic thing happens without Laplace smoothing?
+> 4. Which variant for TF-IDF text? For continuous measurements?
+> 5. Why does the implementation add log-probabilities instead of multiplying probabilities?
 
 ---
 

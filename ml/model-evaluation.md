@@ -364,6 +364,15 @@ skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 
 ---
 
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. Validation set vs test set — who gets looked at repeatedly, who gets touched once?
+> 2. Precision and recall in the fishing-net story — which is purity, which is completeness?
+> 3. Train 99% / test 68% — bias or variance? Name two fixes.
+> 4. When does ROC-AUC lie, and what replaces it?
+> 5. Why must time-series CV never use random folds?
+
+---
+
 ## How It Actually Works: A Full Evaluation Walkthrough
 
 Say you're building a loan default classifier.

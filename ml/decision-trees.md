@@ -23,6 +23,8 @@ Mapping:
 
 The key difference: the algorithm decides what questions to ask and in what order, by finding the questions that most cleanly separate the classes.
 
+> 💻 **Frontend bridge:** a decision tree is the nested `if/else` routing logic you'd write by hand — except *generated from data*, like a compiler emitting the conditionals for you. When you call `export_text(model)`, you are literally reading auto-generated code. Training = the machine figuring out which `if` to put at the top so the fewest branches are needed.
+
 ---
 
 ## Build the Intuition From Zero
@@ -219,6 +221,15 @@ model.feature_importances_
 ```
 
 **Common misconception:** Feature importance from a single tree is reliable. Single-tree importances are noisy. Importances from Random Forest (many trees) are much more stable.
+
+---
+
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. Gini of a group with 10 spam / 0 ham? With 5 / 5?
+> 2. In one sentence: how does the tree choose which question to ask at a node?
+> 3. Gini vs entropy — what's the practical difference?
+> 4. Name the first two hyperparameters you'd set to stop a tree from overfitting.
+> 5. Why is a single tree's feature importance unreliable?
 
 ---
 

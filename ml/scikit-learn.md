@@ -371,6 +371,15 @@ Because the pipeline includes preprocessing, the loaded model takes **raw data**
 
 ---
 
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. `fit` vs `transform` vs `fit_transform` — one phrase each.
+> 2. Which dataset gets `fit_transform` and which gets only `transform`? Why?
+> 3. Why do Pipelines make leakage impossible rather than just convenient?
+> 4. What does the `__` in `model__n_estimators` address?
+> 5. Why save the whole pipeline with joblib instead of just the model?
+
+---
+
 ## How It Actually Works: Full Workflow
 
 ```

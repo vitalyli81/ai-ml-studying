@@ -410,6 +410,15 @@ scores = cross_val_score(pipe, X, y, cv=5)
 
 ---
 
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. Why is red=1, blue=2, green=3 a trap, and what's the test for ordinal vs one-hot?
+> 2. Why is filling missing values with 0 "lying to the model"?
+> 3. Which scaler when the data has heavy outliers?
+> 4. Name two problem types where outliers ARE the signal.
+> 5. State the leakage rule in six words.
+
+---
+
 ## How It Actually Works: End-to-End Example
 
 Predicting housing prices from raw CSV:

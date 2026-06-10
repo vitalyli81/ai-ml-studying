@@ -24,6 +24,8 @@ Mapping:
 
 The magic: you don't need each tree to be perfect. You need them to be diverse. Diversity is what cancels out individual errors.
 
+> 💻 **Frontend bridge:** it's how you handle a flaky e2e test — run it across 100 CI jobs with different seeds/browsers/viewports and take the majority result. Independent failures cancel out; the shared signal survives. And the catch is the same: 100 runs that share the exact same environment (correlated trees) tell you nothing new — which is why Random Forest *forces* each "run" to differ via random rows and random features.
+
 ---
 
 ## Build the Intuition From Zero
@@ -211,6 +213,15 @@ model.feature_importances_
 ```
 
 **Common misconception:** Feature importance from Random Forest tells you the causal relationship. It tells you correlation — which features the model USED, not which features CAUSE the outcome. Causality requires controlled experiments.
+
+---
+
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. What does "sampling with replacement" mean in bagging?
+> 2. Why must each split also be limited to a random subset of features?
+> 3. How do the trees combine for classification? For regression?
+> 4. Which rows does the OOB score evaluate each tree on?
+> 5. Two near-duplicate features each show ~15% importance — what's really going on?
 
 ---
 

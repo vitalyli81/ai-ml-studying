@@ -24,6 +24,8 @@ Mapping:
 
 You chose K (number of groups) before starting — that's K-Means' biggest limitation and most important decision.
 
+> 💻 **Frontend bridge:** extracting a 5-color palette from album art (the Spotify-header trick) *is* K-Means with K=5. Read the canvas pixels, pick 5 representative colors, assign every pixel to its nearest palette color, shift each palette color to the average of its pixels, repeat until stable. Same loop, same convergence — your "clusters" are just colors instead of customers.
+
 ---
 
 ## Build the Intuition From Zero
@@ -223,6 +225,15 @@ Higher = better clustering (aim for > 0.5 for meaningful clusters)
 ```
 
 **Common misconception:** High silhouette score means you found the "true" number of clusters. It means the data is well-separated at that K — but doesn't guarantee it's meaningful. Customer segments with K=10 might score great but be useless for marketing.
+
+---
+
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. The two repeated steps of the K-Means loop?
+> 2. Why is convergence guaranteed — and what *isn't* guaranteed?
+> 3. Why can't you pick K by just minimizing inertia?
+> 4. What does the "elbow" mark on the inertia curve?
+> 5. A point's silhouette score is ≈ 0 — what does that tell you?
 
 ---
 

@@ -24,6 +24,8 @@ Mapping:
 
 Remove any house that's not one of the "closest three on each side" — the wall stays the same. Support vectors are the only data points that matter.
 
+> 💻 **Frontend bridge:** it's the 44px tap-target rule. You don't place two buttons so they merely *don't overlap* — you maximize the empty space between them, so a slightly-off tap (a new, noisy data point) still hits the right one. SVM applies that rule to the decision boundary, and the elements that sit closest and constrain the layout are the support vectors.
+
 ---
 
 ## Build the Intuition From Zero
@@ -271,6 +273,15 @@ With StandardScaler:
 ```
 
 **Common misconception:** SVM handles feature scaling automatically. No — unlike tree-based methods, SVM is extremely sensitive to scale. `StandardScaler` is **required**, not optional.
+
+---
+
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. Of all boundaries that separate the classes, which one does SVM pick, and why does it generalize better?
+> 2. You delete a training point far from the boundary — what happens to the model?
+> 3. What does a kernel function compute, and what does it cleverly avoid computing?
+> 4. High C → wide or narrow margin? Overfit or underfit risk?
+> 5. Why is StandardScaler mandatory here but pointless for Random Forest?
 
 ---
 

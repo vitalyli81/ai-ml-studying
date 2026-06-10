@@ -22,6 +22,8 @@ Mapping:
 - Final document = draft + all corrections → final prediction = sum of all trees' contributions
 - Editors working sequentially (not independently) → trees are built one at a time (not in parallel)
 
+> 💻 **Frontend bridge:** it's pixel-matching a UI to a design mockup, commit by commit. Each commit patches only the *remaining* visual diff — never a rewrite of the whole page. Small commits (low learning rate) are safer than one giant aggressive change, and you stop when the visual-regression check stops improving (early stopping). Final UI = base + the sum of all patches, exactly like F₀ + Σ lr·treeᵢ.
+
 ---
 
 ## Build the Intuition From Zero
@@ -229,6 +231,15 @@ Use CatBoost if you have many categorical features.
 ```
 
 **Common misconception:** They're all the same algorithm with different names. They differ significantly in tree-growing strategy (level-wise vs leaf-wise), handling of missing values, categorical encoding, and GPU support.
+
+---
+
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. What does each new tree learn to predict — the target, or something else?
+> 2. You halve the learning rate — what must happen to n_estimators, and why is that often worth it?
+> 3. How does early stopping decide the number of trees?
+> 4. Why "gradient" boosting — what is the residual, mathematically?
+> 5. When do you reach for LightGBM over XGBoost? CatBoost?
 
 ---
 

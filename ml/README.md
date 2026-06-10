@@ -190,6 +190,37 @@ Read in this order for the best learning path:
 | 12 | [model-evaluation.md](model-evaluation.md) | Measuring quality | CV, precision/recall/F1, ROC/AUC, bias-variance |
 | 13 | [scikit-learn.md](scikit-learn.md) | The toolkit | Unified `fit`/`predict`/`transform` API + Pipelines |
 
+### Practice & Retention (where the learning actually sticks)
+
+| File | What It's For |
+|------|---------------|
+| [flashcards.md](flashcards.md) | ~85 spaced-repetition Q/A cards across all topics — quiz yourself, don't read |
+| [review-quiz.md](review-quiz.md) | 25 mixed scenario questions (interview-style) — tests *choosing between* algorithms, not just knowing each one |
+
+## How to Study This Folder
+
+Reading well once ≈ remembering for a week. Retrieving repeatedly ≈ remembering for an interview. The schedule:
+
+```
+Per doc:
+  Day 1  → read the doc; answer the 🧠 Quick Recall block mid-doc and
+           the Self-Check Questions at the end (out loud, before peeking)
+  Day 3  → redo that doc's Self-Check Questions COLD (no re-reading first)
+  Day 7  → do the doc's flashcards.md section + start its Kaggle exercise
+           from "Go Deeper" (doing > reading — this is the job-interview ammo)
+
+Per week (after ~4 docs done):
+  → one pass through review-quiz.md on everything covered so far
+    (mixed practice is where "I know each algorithm" becomes
+     "I know WHICH algorithm")
+
+Forever:
+  → flashcards.md once a week; misses → re-read that doc's
+    "Build the Intuition From Zero" section only
+```
+
+Rule of thumb: if you can't answer a Quick Recall question without scrolling up, you haven't learned it yet — that's the system working, not failing.
+
 ## ML vs Deep Learning
 
 | Machine Learning | Deep Learning |

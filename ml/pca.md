@@ -24,6 +24,8 @@ Mapping:
 
 PCA rotates the axes of your data space to align with the directions of maximum spread, then lets you discard the low-variance directions.
 
+> 💻 **Frontend bridge:** it's lossy image compression. JPEG re-expresses an image as components ordered by visual importance, keeps the big ones, and drops the rest — 90% smaller, looks the same. PCA does that to your feature columns: re-express, rank by variance carried, keep the top few. `n_components=0.95` is your "image quality: 95%" slider for data.
+
 ---
 
 ## Build the Intuition From Zero
@@ -234,6 +236,15 @@ With StandardScaler first:
 ```
 
 **Common misconception:** Scaling is optional if features are similar. Even "similar" units (all in meters) can have vastly different variances. StandardScaler is ALWAYS needed before PCA.
+
+---
+
+> 🧠 **Quick recall — answer out loud before scrolling on** (all answers are above):
+> 1. What does PCA maximize when choosing PC1?
+> 2. Are principal components a subset of your original features?
+> 3. "PC1 explains 65% of variance" — translate into plain English.
+> 4. Eigenvector vs eigenvalue — which is the direction, which is the amount?
+> 5. You skip StandardScaler before PCA — what hijacks PC1?
 
 ---
 
