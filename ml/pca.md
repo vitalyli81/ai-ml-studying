@@ -302,7 +302,7 @@ X_scaled = StandardScaler().fit_transform(X)
 pca_full = PCA()
 pca_full.fit(X_scaled)
 print("Variance per component:", pca_full.explained_variance_ratio_)
-# [0.73, 0.23, 0.04, 0.00]
+# [0.73, 0.23, 0.04, 0.01]
 # 2 components explain 96% of variance!
 
 # Reduce to 2 components
@@ -331,12 +331,14 @@ pca = PCA(n_components=0.95)   # Keep components until 95% variance
 X_reduced = pca.fit_transform(X_scaled)
 
 print(f"Original: {X.shape[1]} features")
-print(f"After PCA: {X_reduced.shape[1]} components")   # ~29 components
+print(f"After PCA: {X_reduced.shape[1]} components")   # 40 components
+# (the often-quoted "~29 components" figure is for UNSCALED pixels —
+#  scaling boosts the faint border pixels, so more components are needed)
 print(f"Variance retained: {sum(pca.explained_variance_ratio_):.1%}")
 
 # Show cumulative variance by number of components
 cumvar = np.cumsum(PCA().fit(X_scaled).explained_variance_ratio_)
-for n in [5, 10, 20, 29, 40]:
+for n in [5, 10, 20, 30, 40]:
     print(f"  {n} components: {cumvar[n-1]:.1%}")
 ```
 

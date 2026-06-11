@@ -181,18 +181,85 @@ Just right (0.001-0.01): smooth convergence
 
 **Analogy:** It's like adding a rule to your essay grading: "lose points for using unnecessarily complex words." The model is forced to be simpler and more general.
 
-```
-Ridge (L2): penalty = λ × sum(weights²)    → shrinks all weights
-Lasso (L1): penalty = λ × sum(|weights|)   → pushes some weights to exactly 0
+**First, why are large weights the enemy?** Two reasons you can picture:
 
-Without regularization: w = [0.8, 150.3, -200.1, 0.0001, ...]  (some huge)
+1. **A huge weight is a hair trigger.** If `w = 200`, a tiny change in that feature swings the prediction by a lot. Real-world inputs are noisy — a model that reacts violently to small input wiggles is a model that memorized the training data's noise instead of its pattern.
+2. **Huge opposing weights are a cheating trick.** Look at the unregularized example below: `+150.3` and `−200.1`. That happens when two features are correlated (say `sqft` and `num_rooms`) — the model puts giant weights of opposite signs on them so they *mostly cancel*, and uses the tiny leftover to chase noise in the training set. The fit looks great in training and falls apart on new data. Regularization makes this trick expensive.
+
+**How the penalty works — a tug-of-war.** Regularization doesn't change the model; it changes the *loss* the model is trained to minimize:
+
+```
+new loss = MSE  +  λ × penalty(weights)
+           ↑              ↑
+   "fit the data"   "stay small"
+```
+
+Training now has two forces pulling on every weight: the MSE pulls it toward whatever fits the data; the penalty pulls it toward zero. The weight settles where the forces balance — so a feature only *keeps* a big weight if it earns its keep by reducing error more than the penalty costs.
+
+**λ (called `alpha` in scikit-learn) is the volume knob** on the "stay small" force:
+
+```
+λ = 0      → penalty silent: plain linear regression (overfitting risk returns)
+λ small    → gentle shrinking: noise-chasing weights get trimmed, real signal survives
+λ huge     → penalty deafening: all weights crushed toward 0,
+             the model degenerates to "predict the mean" (underfitting)
+
+There's no universal right value — tune λ with cross-validation
+(sklearn: RidgeCV / LassoCV do exactly this).
+```
+
+**The two penalties, with the arithmetic visible.** Take `w = [3.0, 0.5]` and `λ = 0.1`:
+
+```
+Ridge (L2): penalty = λ × sum(weights²)  = 0.1 × (3² + 0.5²)   = 0.1 × 9.25 = 0.925
+Lasso (L1): penalty = λ × sum(|weights|) = 0.1 × (3.0 + 0.5)   = 0.35
+
+Without regularization: w = [0.8, 150.3, -200.1, 0.0001, ...]  (the canceling trick)
 With Ridge:             w = [0.6, 100.2, -130.8, 0.0001, ...]  (all smaller)
-With Lasso:             w = [0.4, 120.1, 0, 0, ...]             (some zeroed out)
-
-Lasso effectively does feature selection — it eliminates unimportant features.
+With Lasso:             w = [0.4, 120.1, 0, 0, ...]             (some exactly zero)
 ```
+
+Notice what squaring does: under L2, the weight `3.0` costs `9` while `0.5` costs only `0.25` — **big weights are punished disproportionately**, so Ridge's strongest pressure lands on the biggest offenders.
+
+**Why does Lasso zero weights out, but Ridge never quite does?** Think about the pull each penalty exerts as a weight shrinks toward 0:
+
+```
+Ridge's pull is PROPORTIONAL to the weight (derivative of w² is 2w):
+  w = 100 → strong pull     w = 0.001 → almost no pull
+  → the pull fades as w shrinks, so w glides toward 0 but never lands. 0.001 → 0.0005 → ...
+
+Lasso's pull is CONSTANT (derivative of |w| is ±1):
+  w = 100 → pull of λ       w = 0.001 → STILL a pull of λ
+  → a weak feature can't outrun a pull that never fades: it gets dragged
+    to exactly 0 and pinned there.
+```
+
+Same idea as taxes: **Ridge is a percentage tax** (always leaves you something), **Lasso is a flat fee per nonzero weight** — features that don't pull their weight aren't worth the fee, so the model drops them entirely. That's why *Lasso doubles as automatic feature selection*: the zeros tell you which features the data didn't need.
+
+**In gradient descent terms** (you'll build this in the [practice series](../python/ml-practice/logistic-regression/from-scratch.md)): Ridge just adds `λ·w` to each weight's gradient, so every update step quietly shaves a percentage off every weight before applying the data's correction:
+
+```python
+gradient = data_gradient + lam * w     # the penalty's pull, one term
+w = w - lr * gradient                  # each step: shrink a little, then fit
+```
+
+(Deep learning calls this exact mechanism **weight decay** — same idea, bigger models.)
+
+**One non-negotiable: scale your features first.** The penalty compares weight *sizes* — but a weight's size depends on its feature's units. Price-per-sqft might be `150`; price-per-(thousands-of-sqft) would be `150,000` for the *same relationship*. Unscaled, the penalty hammers whichever features happen to have small units and ignores the rest. `StandardScaler` first, always (the Pipeline in the code section below does this).
+
+```
+Cheat sheet:
+  Ridge (L2)  → the default. Correlated features, keep everything but tame it.
+  Lasso (L1)  → you suspect many features are useless; you want the model to say which.
+  ElasticNet  → both penalties mixed (l1_ratio sets the blend) — Lasso's selection
+                with Ridge's stability when features are correlated.
+```
+
+> 💻 **Frontend bridge:** it's a performance budget on your bundle. **Ridge is minification** — every symbol gets shorter, nothing is removed. **Lasso is tree-shaking** — imports that don't justify their bytes are dropped from the bundle entirely. And λ is how strict the CI budget check is: at zero nobody minifies anything; set it absurdly high and you ship an empty page.
 
 **Common misconception:** Regularization always hurts accuracy. It hurts training accuracy slightly but improves test/real-world accuracy by preventing overfitting.
+
+**Common misconception #2:** "Lasso zeroed out `num_rooms`, so number of rooms doesn't affect price." Not necessarily — when two features are correlated, Lasso keeps *one of them* and zeroes the other, because the survivor already carries the shared information. The zero means "redundant given the other features," not "irrelevant to the world."
 
 ---
 
@@ -201,7 +268,9 @@ Lasso effectively does feature selection — it eliminates unimportant features.
 > 2. Why square the errors instead of taking absolute values?
 > 3. The gradient is positive — which way do you move the weight?
 > 4. What's the failure mode of a too-high learning rate?
-> 5. Ridge or Lasso — which one can eliminate features entirely?
+> 5. Ridge or Lasso — which one can eliminate features entirely, and why does its pull behave differently near zero?
+> 6. What happens to the model as λ → 0? As λ → huge?
+> 7. Why must features be scaled before regularizing?
 
 ---
 

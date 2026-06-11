@@ -148,4 +148,6 @@ The right panel is the most important chart in boosting: **train RMSE falls fore
 
 **Algorithms:** trees are one algorithm with pluggable impurity/leaf functions; boosting = start at the mean and compound small corrections to the leftovers; shrinkage trades rounds for generalization (and lr=1.0's best is *worse*, not just slower); train error falls forever while validation tells the truth; boosting overfits with more rounds where forests merely plateau; and the residual is the gradient — this whole machine is gradient descent in function space.
 
-**The arc:** linear → logistic → tree → forest → boosting. You've now hand-built both ensemble philosophies — the parallel jury and the sequential editor — and the entire classical-ML practice track is done. From here: [ml/model-evaluation.md](../../../ml/model-evaluation.md) end-to-end (you've built every metric in it), or the deep-learning track, where Part 1's `w -= lr * grad` loop becomes [a neural network](../../../deep-learning/neural-networks-basics.md).
+**The arc:** linear → logistic → tree → forest → boosting. You've now hand-built both ensemble philosophies — the parallel jury and the sequential editor.
+
+**Next:** [ml/svm.md](../../../ml/svm.md) for theory, then [../svm/](../svm/) — Part 6, back to gradient descent but with a geometric question: the widest lane, hinge loss, and the kernel trick performed by hand.
