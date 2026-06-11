@@ -161,4 +161,4 @@ Ten parts, ten algorithms, every one built from scratch and verified against skl
 | 9 | k-means *(unsupervised)* | the assign/update dance, no labels |
 | 10 | PCA *(unsupervised)* | compress features, not rows |
 
-**Where to next:** [ml/model-evaluation.md](../../../ml/model-evaluation.md) and [ml/feature-engineering.md](../../../ml/feature-engineering.md) cover-to-cover — you have now personally implemented nearly every metric and transform in them. Then the [deep-learning track](../../../deep-learning/), where Part 1's `w -= lr * grad` loop, Part 2's sigmoid, Part 8's softmax shift, and Part 10's matrix projections all reassemble into a neural network.
+**Where to next:** [../model-evaluation/](../model-evaluation/) — Part 11, the capstone: build the judges (k-fold CV, ROC/AUC, PR-AUC) that decided whether any of Parts 1–10 worked. Then the [deep-learning track](../../../deep-learning/), where Part 1's `w -= lr * grad` loop, Part 2's sigmoid, Part 8's softmax shift, and Part 10's matrix projections all reassemble into a neural network.
